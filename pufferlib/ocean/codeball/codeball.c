@@ -5,14 +5,6 @@
 
 
 void allocate(CodeBall* env) {
-    if (env->n_robots < 2 || env->n_robots > 6) {
-        printf("Invalid number of robots\n");
-        exit(1);
-    }
-    if (env->n_nitros != 4 && env->n_nitros != 0) {
-        printf("Invalid number of nitro packs\n");
-        exit(1);
-    }
     env->robots = (Entity*)calloc(env->n_robots, sizeof(Entity));
     env->nitro_packs = (NitroPack*)calloc(env->n_nitros, sizeof(NitroPack));
     env->actions = (double*)calloc(env->n_robots * 4, sizeof(double));
@@ -174,17 +166,19 @@ void render(Client* client, CodeBall* env) {
                     (Vector3){0, -1, 0}, goal_size.x, goal_size.z, goal_color);  // Bottom
     }
 
-    // Draw robots (as boxes, colored by side)
+    // Draw robots (colored by side)
     for (int i = 0; i < env->n_robots; i++) {
         Color robot_color =
             robots[i].side ? client->robot_color[1] : client->robot_color[0];
-        DrawCube(cvt(robots[i].position), robots[i].radius * 2, robots[i].radius * 2,
-                 robots[i].radius * 2, robot_color);
+        // DrawCube(cvt(robots[i].position), robots[i].radius * 2, robots[i].radius * 2,
+        //          robots[i].radius * 2, robot_color);
+        DrawSphere(cvt(robots[i].position), robots[i].radius, robot_color);
     }
 
     // Draw ball (as a box)
-    DrawCube(cvt(ball.position), ball.radius * 2, ball.radius * 2, ball.radius * 2,
-             client->ball_color);
+    // DrawCube(cvt(ball.position), ball.radius * 2, ball.radius * 2, ball.radius * 2,
+    //          client->ball_color);
+    DrawSphere(cvt(ball.position), ball.radius, client->ball_color);
 
     // Draw nitro packs (as boxes)
     for (int i = 0; i < env->n_nitros; i++) {
@@ -266,7 +260,7 @@ int main() {
     Client* client = make_client();
 
     CodeBall env;
-    env.n_robots = 6;
+    env.n_robots = 50;
     env.n_nitros = 4;
     allocate(&env);
     reset(&env);
@@ -274,7 +268,7 @@ int main() {
     struct timeval start, end;
     gettimeofday(&start, NULL);
 
-    int initial_steps = 10;
+    int initial_steps = 1;
 
     for (int i = 0; i < 10000; i++) {
         if (WindowShouldClose()) break;
