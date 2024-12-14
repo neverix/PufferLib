@@ -88,8 +88,6 @@ typedef struct{
     double radius; //Nitro pack has radius
 } NitroPack;
 
-NitroPack nitro_packs[NITRO_PACK_AMOUNT];
-
 //Helper functions
 double vec3d_length(Vec3D v) { return sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 Vec3D vec3d_normalize(Vec3D v) {
@@ -359,8 +357,20 @@ void goal_scored(void) {
     // Reset game state (not implemented here, as it depends on game structure)
 }
 
-void update(double delta_time, Entity robots[], Entity* ball) {
-    for (int i = 0; i < 2; i++) { // Assuming 2 robots
+typedef struct CodeBall {
+    Entity* ball;
+    int n_robots;
+    Entity* robots;
+    int n_nitros;
+    NitroPack* nitro_packs;
+} CodeBall;
+
+void update(double delta_time, CodeBall* env) {
+    Entity* robots = env->robots;
+    Entity* ball = env->ball;
+    NitroPack* nitro_packs = env->nitro_packs;
+
+    for (int i = 0; i < env->n_robots; i++) { // Assuming 2 robots
         Vec3D target_velocity = vec3d_clamp(robots[i].action.target_velocity, ROBOT_MAX_GROUND_SPEED);
 
         if (robots[i].touch) {
@@ -402,13 +412,13 @@ void update(double delta_time, Entity robots[], Entity* ball) {
 
     move(ball, delta_time);
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < env->n_robots; i++) {
         for (int j = 0; j < i; j++) {
             collide_entities(&robots[i], &robots[j]);
         }
     }
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < env->n_robots; i++) {
         collide_entities(&robots[i], ball);
         Vec3D collision_normal = collide_with_arena(&robots[i]);
         robots[i].touch = (collision_normal.x != 0 || collision_normal.y != 0 || collision_normal.z != 0);
@@ -422,9 +432,9 @@ void update(double delta_time, Entity robots[], Entity* ball) {
         goal_scored();
     }
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < env->n_robots; i++) {
         if (robots[i].nitro == MAX_NITRO_AMOUNT) continue;
-        for (int j = 0; j < NITRO_PACK_AMOUNT; j++){
+        for (int j = 0; j < env->n_nitros; j++){
             if (!nitro_packs[j].alive) continue;
             Vec3D diff = vec3d_subtract(robots[i].position, nitro_packs[j].position);
 
@@ -437,12 +447,13 @@ void update(double delta_time, Entity robots[], Entity* ball) {
     }
 }
 
-void step(Entity robots[], Entity* ball) {
+void step(CodeBall *env) {
     double delta_time = 1.0 / TICKS_PER_SECOND;
     for (int i = 0; i < MICROTICKS_PER_TICK; i++) {
-        update(delta_time / MICROTICKS_PER_TICK, robots, ball);
+        update(delta_time / MICROTICKS_PER_TICK, env);
     }
-    for (int i = 0; i < NITRO_PACK_AMOUNT; i++) {
+    NitroPack *nitro_packs = env->nitro_packs;
+    for (int i = 0; i < env->n_nitros; i++) {
         if (!nitro_packs[i].alive) {
             nitro_packs[i].respawn_ticks--;
             if (nitro_packs[i].respawn_ticks == 0) {
@@ -481,9 +492,13 @@ void close_client(Client* client) {
     free(client);
 }
 
-void render(Client* client, Entity robots[], Entity* ball, NitroPack nitro_packs[]) {
+void render(Client* client, CodeBall *env) {
     BeginDrawing();
     ClearBackground(DARKGRAY);
+
+    Entity* robots = env->robots;
+    Entity* ball = env->ball;
+    NitroPack* nitro_packs = env->nitro_packs;
 
     // Draw arena (simplified rectangle for now)
     DrawRectangle(0, 0, client->width, client->height, GRAY);
@@ -495,7 +510,7 @@ void render(Client* client, Entity robots[], Entity* ball, NitroPack nitro_packs
     double depth = arena.depth + arena.goal_depth * 2.0;
 
     // Draw robots
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < env->n_robots; i++) {
         DrawCircle((int)(client->width / 2 + robots[i].position.x * client->width / (arena.width)),
                    (int)(client->height / 2 - robots[i].position.z * client->height / (depth)),
                    (int)(robots[i].radius * client->width / (arena.width)), client->robot_color[i]);
@@ -508,7 +523,7 @@ void render(Client* client, Entity robots[], Entity* ball, NitroPack nitro_packs
 
 
     // Draw nitro packs
-    for (int i = 0; i < NITRO_PACK_AMOUNT; i++) {
+    for (int i = 0; i < env->n_nitros; i++) {
         if (nitro_packs[i].alive) {
             DrawCircle((int)(client->width / 2 + nitro_packs[i].position.x * client->width / (arena.width)),
                        (int)(client->height / 2 - nitro_packs[i].position.z * client->height / (depth)),
@@ -525,8 +540,8 @@ int main() {
     Client* client = make_client();
 
     // Initialize robots
-    Entity robots[2];
-    for (int i = 0; i < 2; i++) {
+    Entity robots[6];
+    for (int i = 0; i < 6; i++) {
         robots[i].position.x = ((double)rand() / RAND_MAX) * (arena.width/2) * (i == 0 ? -1: 1);
         robots[i].position.z = ((double)rand() / RAND_MAX) * (arena.depth/2) * (i == 0 ? -1: 1);
         robots[i].position.y = 0;
@@ -561,6 +576,7 @@ int main() {
         ball.action.use_nitro = false;
 
     // Initialize nitro packs
+    NitroPack nitro_packs[NITRO_PACK_AMOUNT];
     for (int i = 0; i < NITRO_PACK_AMOUNT; i++) {
         nitro_packs[i].position.x = (i % 2 == 0) ? NITRO_PACK_X : -NITRO_PACK_X;
         nitro_packs[i].position.z = (i < 2) ? NITRO_PACK_Z : -NITRO_PACK_Z;
@@ -570,16 +586,30 @@ int main() {
         nitro_packs[i].radius = NITRO_PACK_RADIUS;
     }
 
+    CodeBall env = {&ball, 6, robots, NITRO_PACK_AMOUNT, nitro_packs};
+    env.nitro_packs = nitro_packs;
+
     // Example game loop with printing
     for (int i = 0; i < 10000; i++) {
-        step(robots, &ball);
+        step(&env);
 
-        for (int j = 0; j < 2; j++)
+        for (int j = 0; j < env.n_robots; j++)
         {
-            robots[j].action = (Action){
-                .target_velocity = vec3d_multiply(vec3d_subtract(ball.position, robots[j].position), 4.0),
-                .jump_speed = 0, .use_nitro = false
-            };
+            Vec3D tgt =
+                vec3d_subtract(ball.position, robots[j].position);
+            for (int k = 0; k < env.n_robots; k++) {
+                if (k != j) {
+                    Vec3D diff = vec3d_subtract(robots[k].position, robots[j].position);
+                    double diff_len = vec3d_length(diff);
+                    if (diff_len < 2.5) {
+                        tgt = vec3d_multiply(diff, -1.0);
+                    }
+                }
+            }
+            robots[j].action =
+                    (Action){.target_velocity = vec3d_multiply(tgt, 4.0),
+                             .jump_speed = 0,
+                             .use_nitro = false};
         }
 
         // printf("Tick %d: ", i);
@@ -592,7 +622,7 @@ int main() {
         // }
         // printf("\n");
 
-        render(client, robots, &ball, nitro_packs);
+        render(client, &env);
     }
 
     close_client(client);
