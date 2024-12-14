@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <time.h>
-#include "puffernet.h"
+#include <string.h>
 #include "raylib.h"
 
 // Constants (from the description)
@@ -17,7 +17,8 @@
 #define ROBOT_MASS 2.0
 #define TICKS_PER_SECOND 60
 // #define MICROTICKS_PER_TICK 100
-#define MICROTICKS_PER_TICK 20
+// #define MICROTICKS_PER_TICK 20
+#define MICROTICKS_PER_TICK 1
 #define RESET_TICKS (2 * TICKS_PER_SECOND)
 #define BALL_ARENA_E 0.7
 #define BALL_RADIUS 2.0
@@ -493,35 +494,13 @@ void goal_scored(CodeBall *env, bool side) {
     }
 }
 
-void allocate(CodeBall* env) {
-    if (env->n_robots < 2 || env->n_robots > 6) {
-        printf("Invalid number of robots\n");
-        exit(1);
-    }
-    if (env->n_nitros != 4 && env->n_nitros != 0) {
-        printf("Invalid number of nitro packs\n");
-        exit(1);
-    }
-    env->robots = (Entity*)calloc(env->n_robots, sizeof(Entity));
-    env->nitro_packs = (NitroPack*)calloc(env->n_nitros, sizeof(NitroPack));
-    env->actions = (double*)calloc(env->n_robots * 4, sizeof(double));
-    env->rewards = (double*)calloc(env->n_robots, sizeof(double));
-}
-
-void free_allocated(CodeBall* env) {
-    free(env->robots);
-    free(env->nitro_packs);
-    free(env->actions);
-    free(env->rewards);
-}
-
 void reset(CodeBall* env) {
     Entity* robots = env->robots;
     for (int i = 0; i < env->n_robots; i++) {
         robots[i].position.x =
-            ((sim_dtype)rand() / RAND_MAX) * (arena.width / 2) * (i == 0 ? -1 : 1);
+            ((sim_dtype)rand() / RAND_MAX) * (arena.width / 2) * (i % 2 == 0 ? -1 : 1);
         robots[i].position.z =
-            ((sim_dtype)rand() / RAND_MAX) * (arena.depth / 2) * (i == 0 ? -1 : 1);
+            ((sim_dtype)rand() / RAND_MAX) * (arena.depth / 2) * (i % 2 == 0 ? -1 : 1);
         robots[i].position.y = 0;
         robots[i].velocity = (Vec3D){0, 0, 0};
         robots[i].radius = ROBOT_MIN_RADIUS;
@@ -703,87 +682,4 @@ void step(CodeBall* env) {
         }
     }
     env->tick++;
-}
-
-typedef struct Client Client;
-struct Client {
-    float width;
-    float height;
-    Color robot_color[2];
-    Color ball_color;
-    Color nitro_color;
-};
-
-Client* make_client() {
-    Client* client = (Client*)calloc(1, sizeof(Client));
-    client->width = 800;   // Example width
-    client->height = 600;  // Example height
-    client->robot_color[0] = RED;
-    client->robot_color[1] = BLUE;
-    client->ball_color = WHITE;
-    client->nitro_color = GREEN;
-
-    InitWindow(client->width, client->height, "CodeBall");
-    SetTargetFPS(60);
-
-    return client;
-}
-
-void close_client(Client* client) {
-    CloseWindow();
-    free(client);
-}
-
-void render(Client* client, CodeBall* env) {
-    BeginDrawing();
-    ClearBackground(DARKGRAY);
-
-    Entity* robots = env->robots;
-    Entity ball = env->ball;
-    NitroPack* nitro_packs = env->nitro_packs;
-
-    // Draw arena (simplified rectangle for now)
-    DrawRectangle(0, 0, client->width, client->height, GRAY);
-
-    // Draw goal lines
-    DrawLine(client->width / 2 - arena.goal_width / 2, 0,
-             client->width / 2 - arena.goal_width / 2, arena.goal_height, BLUE);
-    DrawLine(client->width / 2 + arena.goal_width / 2, 0,
-             client->width / 2 + arena.goal_width / 2, arena.goal_height, RED);
-
-    sim_dtype depth = arena.depth + arena.goal_depth * 2.0;
-
-    // Draw robots
-    for (int i = 0; i < env->n_robots; i++) {
-        DrawCircle((int)(client->width / 2 +
-                         robots[i].position.x * client->width / (arena.width)),
-                   (int)(client->height / 2 -
-                         robots[i].position.z * client->height / (depth)),
-                   (int)(robots[i].radius * client->width / (arena.width)),
-                   client->robot_color[i]);
-    }
-
-    // Draw ball
-    DrawCircle(
-        (int)(client->width / 2 +
-              ball.position.x * client->width / (arena.width)),
-        (int)(client->height / 2 - ball.position.z * client->height / (depth)),
-        (int)(ball.radius * client->width / (arena.width)),
-        client->ball_color);
-
-    // Draw nitro packs
-    for (int i = 0; i < env->n_nitros; i++) {
-        if (nitro_packs[i].alive) {
-            DrawCircle(
-                (int)(client->width / 2 + nitro_packs[i].position.x *
-                                              client->width / (arena.width)),
-                (int)(client->height / 2 -
-                      nitro_packs[i].position.z * client->height / (depth)),
-                (int)(nitro_packs[i].radius * client->width / (arena.width)),
-                client->nitro_color);
-        }
-    }
-
-    DrawFPS(10, 10);
-    EndDrawing();
 }
