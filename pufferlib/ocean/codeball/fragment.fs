@@ -5,7 +5,6 @@ in vec2 fragTexCoord;
 in vec4 fragColor;
 in vec3 fragPosition;
 in vec3 fragNormal;
-in float fragDepth;
 
 // Input uniform values
 uniform sampler2D texture0;
@@ -49,13 +48,10 @@ void main() {
     // finalColor = vec4(fd, fd, fd, 1.0);
     // finalColor = fragColor;
     // finalColor = texture(texture0, fragTexCoord) * 0.8;
-    // float fd = dot(normalize(fragNormal), normalize(vec3(0, 0.3, -1)));
-    // float fd = max(0.0, dot(fragNormal, -normalize(vec3(0, 0.3, -1))));
+    // float fd = max(0.0, dot(fragNormal, normalize(vec3(0, 0.3, -1))));
     // fd = clamp(fd, 0.2, 0.8);
-    // float fd = gl_FragCoord.x;
-    // float fd = fragTexCoord.x;
-    // float fd = texture(texture0, fragTexCoord).x;
-    float fd = fragColor.x;
-    finalColor = vec4(fd, fd, fd, 1.0);
-    // finalColor = texture(texture0, fragTexCoord);
+    // float fd = fragNormal.z;
+    // finalColor = vec4(fd, fd, fd, 1.0);
+    // finalColor = texture(texture0, fragTexCoord) * (fragNormal.x + 0.5);
+    finalColor = fragColor;
 }

@@ -8,6 +8,9 @@ CFLAGS=\
 	-I../../../raylib/include -I../../../pufferlib -lpthread
 ARCH=$(shell uname -m)
 
+clean:
+	rm -f codeball
+
 codeball: $(CFILES) codeball.h
 	gcc $(CFLAGS) $(CFILES) -o codeball
 

@@ -32,8 +32,9 @@ struct Client {
     Color ball_color;
     Color nitro_color;
     Camera3D camera;
-    Shader fragment;
+    Shader shader;
     RenderTexture2D render_target;
+    Model sphere;
 };
 
 Client* make_client() {
@@ -52,8 +53,8 @@ Client* make_client() {
 
     InitWindow(client->width, client->height, "CodeBall");
 
-    client->fragment = LoadShader(TextFormat("base.vs", GLSL_VERSION),
-                                  TextFormat("fragment.fs", GLSL_VERSION));
+    client->sphere = LoadModelFromMesh(GenMeshSphere(1.0f, 32, 32));
+    client->shader = LoadShader("base.vs", "fragment.fs");
     client->render_target =
         LoadRenderTexture(client->width, client->height);
 
@@ -70,6 +71,11 @@ void close_client(Client* client) {
 
 Vector3 cvt(Vec3D vec) {
     return (Vector3){vec.x, vec.y, vec.z};
+}
+
+void MyDrawSphere(Client *client, Vector3 center, float radius,
+               Color color) {
+                DrawModel(client->sphere, center, radius, color);
 }
 
 // Custom DrawPlane function for arbitrary orientation
@@ -110,6 +116,7 @@ void render(Client* client, CodeBall* env) {
     ClearBackground(DARKGRAY);
     BeginMode3D(client->camera);  // Begin 3D mode
 
+    BeginShaderMode(client->shader);
 
     // Arena dimensions
     Vector3 arena_size = {arena.width, arena.height,
@@ -186,22 +193,23 @@ void render(Client* client, CodeBall* env) {
             robots[i].side ? client->robot_color[1] : client->robot_color[0];
         // DrawCube(cvt(robots[i].position), robots[i].radius * 2, robots[i].radius * 2,
         //          robots[i].radius * 2, robot_color);
-        DrawSphere(cvt(robots[i].position), robots[i].radius, robot_color);
+        MyDrawSphere(client, cvt(robots[i].position), robots[i].radius, robot_color);
     }
 
     // Draw ball (as a box)
     // DrawCube(cvt(ball.position), ball.radius * 2, ball.radius * 2, ball.radius * 2,
     //          client->ball_color);
-    DrawSphere(cvt(ball.position), ball.radius, client->ball_color);
+    MyDrawSphere(client, cvt(ball.position), ball.radius, client->ball_color);
 
     // Draw nitro packs (as boxes)
     for (int i = 0; i < env->n_nitros; i++) {
         if (nitro_packs[i].alive) {
-            DrawCube(cvt(nitro_packs[i].position), nitro_packs[i].radius * 2,
-                     nitro_packs[i].radius * 2, nitro_packs[i].radius * 2,
+            MyDrawSphere(client, cvt(nitro_packs[i].position), nitro_packs[i].radius * 2,
                      client->nitro_color);
         }
     }
+
+    EndShaderMode();
 
     EndMode3D();  // End 3D mode
     EndTextureMode();
@@ -210,7 +218,7 @@ void render(Client* client, CodeBall* env) {
     BeginDrawing();
 
     ClearBackground(RAYWHITE);
-    BeginShaderMode(client->fragment);
+    BeginShaderMode(client->shader);
     // NOTE: Render texture must be y-flipped due to default OpenGL coordinates
     // (left-bottom)
     DrawTextureRec(client->render_target.texture,
