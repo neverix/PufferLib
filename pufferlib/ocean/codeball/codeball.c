@@ -1,8 +1,14 @@
 #include "codeball.h"
 #include "puffernet.h"
 #include "raymath.h"
+#include "rlgl.h"
 #include <sys/time.h>
 
+#if defined(PLATFORM_DESKTOP)
+#define GLSL_VERSION 330
+#else  // PLATFORM_ANDROID, PLATFORM_WEB
+#define GLSL_VERSION 100
+#endif
 
 void allocate(CodeBall* env) {
     env->robots = (Entity*)calloc(env->n_robots, sizeof(Entity));
@@ -26,6 +32,8 @@ struct Client {
     Color ball_color;
     Color nitro_color;
     Camera3D camera;
+    Shader fragment;
+    RenderTexture2D render_target;
 };
 
 Client* make_client() {
@@ -44,12 +52,18 @@ Client* make_client() {
 
     InitWindow(client->width, client->height, "CodeBall");
 
+    client->fragment = LoadShader(TextFormat("base.vs", GLSL_VERSION),
+                                  TextFormat("fragment.fs", GLSL_VERSION));
+    client->render_target =
+        LoadRenderTexture(client->width, client->height);
+
     SetTargetFPS(60);
 
     return client;
 }
 
 void close_client(Client* client) {
+    UnloadRenderTexture(client->render_target);
     CloseWindow();
     free(client);
 }
@@ -91,11 +105,11 @@ void render(Client* client, CodeBall* env) {
     Entity ball = env->ball;
     NitroPack* nitro_packs = env->nitro_packs;
 
-    BeginDrawing();
+    BeginTextureMode(client->render_target);
 
     ClearBackground(DARKGRAY);
-
     BeginMode3D(client->camera);  // Begin 3D mode
+
 
     // Arena dimensions
     Vector3 arena_size = {arena.width, arena.height,
@@ -190,9 +204,26 @@ void render(Client* client, CodeBall* env) {
     }
 
     EndMode3D();  // End 3D mode
+    EndTextureMode();
+
+
+    BeginDrawing();
+
+    ClearBackground(RAYWHITE);
+    BeginShaderMode(client->fragment);
+    // NOTE: Render texture must be y-flipped due to default OpenGL coordinates
+    // (left-bottom)
+    DrawTextureRec(client->render_target.texture,
+                   (Rectangle){0, 0, (float)client->render_target.texture.width,
+                               (float)-client->render_target.texture.height},
+                   (Vector2){0, 0}, WHITE);
+    EndShaderMode();
 
     DrawFPS(10, 10);
+
     EndDrawing();
+
+
 }
 
 // void render(Client* client, CodeBall* env) {
