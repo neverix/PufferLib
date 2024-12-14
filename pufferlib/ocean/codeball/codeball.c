@@ -33,7 +33,6 @@ struct Client {
     Color nitro_color;
     Camera3D camera;
     Shader shader;
-    RenderTexture2D render_target;
     Model sphere;
 };
 
@@ -55,8 +54,6 @@ Client* make_client() {
 
     client->sphere = LoadModelFromMesh(GenMeshSphere(1.0f, 32, 32));
     client->shader = LoadShader("base.vs", "fragment.fs");
-    client->render_target =
-        LoadRenderTexture(client->width, client->height);
 
     SetTargetFPS(60);
 
@@ -64,7 +61,6 @@ Client* make_client() {
 }
 
 void close_client(Client* client) {
-    UnloadRenderTexture(client->render_target);
     CloseWindow();
     free(client);
 }
@@ -73,9 +69,11 @@ Vector3 cvt(Vec3D vec) {
     return (Vector3){vec.x, vec.y, vec.z};
 }
 
+// TODO instancing...
 void MyDrawSphere(Client *client, Vector3 center, float radius,
                Color color) {
-                DrawModel(client->sphere, center, radius, color);
+                // DrawModel(client->sphere, center, radius, color);
+                DrawSphere(center, radius, color);
 }
 
 // Custom DrawPlane function for arbitrary orientation
@@ -111,7 +109,7 @@ void render(Client* client, CodeBall* env) {
     Entity ball = env->ball;
     NitroPack* nitro_packs = env->nitro_packs;
 
-    BeginTextureMode(client->render_target);
+    BeginDrawing();
 
     ClearBackground(DARKGRAY);
     BeginMode3D(client->camera);  // Begin 3D mode
@@ -211,21 +209,7 @@ void render(Client* client, CodeBall* env) {
 
     EndShaderMode();
 
-    EndMode3D();  // End 3D mode
-    EndTextureMode();
-
-
-    BeginDrawing();
-
-    ClearBackground(RAYWHITE);
-    BeginShaderMode(client->shader);
-    // NOTE: Render texture must be y-flipped due to default OpenGL coordinates
-    // (left-bottom)
-    DrawTextureRec(client->render_target.texture,
-                   (Rectangle){0, 0, (float)client->render_target.texture.width,
-                               (float)-client->render_target.texture.height},
-                   (Vector2){0, 0}, WHITE);
-    EndShaderMode();
+    EndMode3D();
 
     DrawFPS(10, 10);
 
