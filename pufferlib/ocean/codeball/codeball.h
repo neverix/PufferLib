@@ -682,3 +682,17 @@ void step(CodeBall* env) {
     }
     env->tick++;
 }
+
+void allocate(CodeBall* env) {
+    env->robots = (Entity*)calloc(env->n_robots, sizeof(Entity));
+    env->nitro_packs = (NitroPack*)calloc(env->n_nitros, sizeof(NitroPack));
+    env->actions = (double*)calloc(env->n_robots * 4, sizeof(double));
+    env->rewards = (double*)calloc(env->n_robots, sizeof(double));
+}
+
+void free_allocated(CodeBall* env) {
+    free(env->robots);
+    free(env->nitro_packs);
+    free(env->actions);
+    free(env->rewards);
+}

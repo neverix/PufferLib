@@ -1,5 +1,9 @@
 from libc.stdlib cimport calloc, free, rand, srand
 import numpy as np
+cimport numpy as np
+
+cdef extern from "stdbool.h":
+    ctypedef bint bool
 
 cdef extern from "codeball.h":
     # Constants
@@ -53,7 +57,7 @@ cdef extern from "codeball.h":
     ctypedef struct Action:
         Vec3D target_velocity
         double jump_speed
-        bint use_nitro
+        bool use_nitro
 
     ctypedef struct Entity:
         Vec3D position
@@ -62,15 +66,15 @@ cdef extern from "codeball.h":
         double radius_change_speed
         double mass
         double arena_e
-        bint touch
+        bool touch
         Vec3D touch_normal
         double nitro
         Action action
-        bint side
+        bool side
 
     ctypedef struct NitroPack:
         Vec3D position
-        bint alive
+        bool alive
         int respawn_ticks
         double radius
 
@@ -85,6 +89,8 @@ cdef extern from "codeball.h":
         double* rewards
 
     # Functions
+    void allocate(CodeBall* env)
+    void free_allocated(CodeBall* env)
     void reset(CodeBall* env)
     void step(CodeBall* env)
 
@@ -115,18 +121,19 @@ cdef class CyCodeBall:
         cdef int i
         for i in range(num_envs):
             self.envs[i].n_robots = n_robots
-            self.envs[i].robots = <Entity*>calloc(n_robots, sizeof(Entity))
             self.envs[i].n_nitros = n_nitros
-            self.envs[i].nitro_packs = <NitroPack*>calloc(n_nitros, sizeof(NitroPack))
-            self.envs[i].actions = &self.action_buffer[i * n_robots * 4]
-            self.envs[i].rewards = &self.reward_buffer[i * n_robots]
-            # Initialize Nitro Packs
-            for j in range(n_nitros):
-                self.envs[i].nitro_packs[j].position.x = NITRO_PACK_X;
-                self.envs[i].nitro_packs[j].position.y = NITRO_PACK_Y;
-                self.envs[i].nitro_packs[j].position.z = NITRO_PACK_Z * (j+1);
-                self.envs[i].nitro_packs[j].alive = True;
-                self.envs[i].nitro_packs[j].radius = NITRO_PACK_RADIUS;
+            allocate(&self.envs[i]) # allocate memory for each env
+
+    def get_entities(self):
+        entities = np.empty((self.num_envs, self.envs[0].n_robots + 1), dtype=entity_dtype())
+        for i in range(self.num_envs):
+            for j in range(self.envs[0].n_robots):
+                entities[i, j] = np.asarray(<Entity[:1]>&self.envs[i].robots[j])
+            entities[i, self.envs[0].n_robots] = np.asarray(<Entity[:1]>&self.envs[i].ball)
+        return entities
+    
+    def get_tick(self):
+        return self.envs[0].tick
 
     def reset(self, int seed):
         srand(seed)
@@ -134,47 +141,21 @@ cdef class CyCodeBall:
         for i in range(self.num_envs):
             reset(&self.envs[i])
 
-    def step(self, np.ndarray[np.float64_t, ndim=2] actions):
+    def step(self, actions):
+    # cpdef step(self, np.ndarray[np.float64_t, ndim=3] actions):
         cdef int i, j
-        if actions.shape != (self.num_envs, self.envs[0].n_robots * 4):
+        if actions.shape != (self.num_envs, self.envs[0].n_robots, 4):
             raise ValueError("Actions array has incorrect shape.")
 
         for i in range(self.num_envs):
-            for j in range(self.envs[0].n_robots * 4):
-                self.envs[i].actions[j] = actions[i, j]
+            for j in range(self.envs[0].n_robots):
+                for k in range(4):
+                    self.envs[i].actions[j * 4 + k] = actions[i, j, k]
         for i in range(self.num_envs):
             step(&self.envs[i])
-
-    def get_entities(self):
-        cdef np.ndarray[entity_dtype(), ndim=2] entities = np.empty((self.num_envs, self.envs[0].n_robots + 1), dtype=entity_dtype())
-        cdef int i, j
-        for i in range(self.num_envs):
-            for j in range(self.envs[0].n_robots):
-                entities[i, j] = self.envs[i].robots[j]
-            entities[i, self.envs[0].n_robots] = self.envs[i].ball
-        return entities
-
-    def get_nitro_packs(self):
-        cdef np.ndarray[nitro_pack_dtype(), ndim=2] nitro_packs = np.empty((self.num_envs, self.envs[0].n_nitros), dtype=nitro_pack_dtype())
-        cdef int i, j
-        for i in range(self.num_envs):
-            for j in range(self.envs[0].n_nitros):
-                nitro_packs[i, j] = self.envs[i].nitro_packs[j]
-        return nitro_packs
-
-    def get_rewards(self):
-        cdef np.ndarray[np.float64_t, ndim=2] rewards = np.empty((self.num_envs, self.envs[0].n_robots), dtype=np.float64)
-        cdef int i, j
-        for i in range(self.num_envs):
-            for j in range(self.envs[0].n_robots):
-                rewards[i, j] = self.envs[i].rewards[j]
-        return rewards
 
     def close(self):
         cdef int i
         for i in range(self.num_envs):
-            free(self.envs[i].robots)
-            free(self.envs[i].nitro_packs)
+            free_allocated(&self.envs[i])
         free(self.envs)
-        free(self.action_buffer)
-        free(self.reward_buffer)
