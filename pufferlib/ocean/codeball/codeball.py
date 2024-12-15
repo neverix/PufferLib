@@ -1,5 +1,5 @@
 import numpy as np
-import os
+from tqdm.auto import trange
 
 import pufferlib
 
@@ -26,7 +26,9 @@ class CodeBall(pufferlib.PufferEnv):
         super().__init__(buf=buf)
 
         self.c_envs = CyCodeBall(self.num_envs, self.n_robots, self.n_nitros)
-        self.rewards = np.zeros((self.num_envs, self.n_robots), dtype=np.float64)  # Initialize rewards array
+
+    def _get_observations(self):
+        return self.c_envs.get_observations()
 
     def reset(self, seed=None):
         if seed is not None:
@@ -48,32 +50,16 @@ class CodeBall(pufferlib.PufferEnv):
         reshaped_actions = actions.reshape(self.num_envs, self.n_robots, 4)
         self.c_envs.step(reshaped_actions)
 
-        # truncated = np.array([self.c_envs.envs[i].tick >= self.max_steps for i in range(self.num_envs)])
         truncated = np.array([self.c_envs.get_tick() >= self.max_steps for i in range(self.num_envs)])
-        terminated = np.any(self.rewards != 0, axis=1)
+        terminated = np.any(self.c_envs.get_terminals() != 0, axis=1)
 
         return (
             self._get_observations(),
-            self.rewards,
+            self.c_envs.get_rewards(),
             terminated,
             truncated,
             [{}] * self.num_envs  # Empty infos
         )
-
-    def _get_observations(self):
-        entities = self.c_envs.get_entities()
-        observations = []
-        for i in range(self.num_envs):
-            env_obs = []
-            for j in range(self.n_robots + 1):
-                entity = entities[i, j]
-                env_obs.extend([
-                    entity['position']['x'], entity['position']['y'], entity['position']['z'],
-                    entity['velocity']['x'], entity['velocity']['y'], entity['velocity']['z'],
-                    entity['radius']
-                ])
-            observations.append(np.array(env_obs, dtype=np.float32))
-        return np.stack(observations)
 
     def close(self):
         self.c_envs.close()
@@ -86,15 +72,26 @@ if __name__ == '__main__':
     print("Initial Observations Shape:", obs.shape)
 
     actions = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+    actions[0, ::2] = 1
     all_obs = []
-    for _ in range(10000):
+    all_rewards = []
+    for _ in trange(10000):
         obs, rewards, terminated, truncated, info = env.step(actions)
         all_obs.append(obs)
+        all_rewards.append(rewards)
     obs = np.stack(all_obs)
+    rewards = np.stack(all_rewards)
     from matplotlib import pyplot as plt
-    plt.plot(obs[:, 0, 0], label="Robot 0 X")
-    plt.plot(obs[:, 0, 1], label="Robot 0 Y")
-    plt.show()
+    plt.plot(obs[:, 0, 0, 0], label="Robot 0 X")
+    plt.plot(obs[:, 0, 0, 1], label="Robot 0 Y")
+    plt.plot(obs[:, 0, 0, 2], label="Robot 0 Z")
+    plt.plot(obs[:, 0, -1, 0], label="Ball X")
+    plt.plot(obs[:, 0, -1, 1], label="Ball Y")
+    plt.plot(obs[:, 0, -1, 2], label="Ball Z")
+    plt.plot(rewards[:, 0, 0] * 1000, label="Rewards")
+    plt.legend()
+    plt.pause(5)
+    plt.close()
     print("Rewards:", rewards)
     print("Terminated:", terminated)
     print("Truncated:", truncated)

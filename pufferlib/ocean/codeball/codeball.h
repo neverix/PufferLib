@@ -14,7 +14,7 @@
 #define ROBOT_MAX_GROUND_SPEED 30.0
 #define ROBOT_ARENA_E 0.0
 #define ROBOT_MASS 2.0
-#define TICKS_PER_SECOND 60
+#define TICKS_PER_SECOND 30
 // #define MICROTICKS_PER_TICK 100
 // #define MICROTICKS_PER_TICK 20
 #define MICROTICKS_PER_TICK 1
@@ -35,6 +35,7 @@
 #define NITRO_PACK_AMOUNT 4  // Corrected: There are 4 nitro packs
 #define NITRO_PACK_RESPAWN_TICKS (10 * TICKS_PER_SECOND)
 #define GRAVITY 30.0
+#define MAX_ROUNDS 3
 
 typedef double sim_dtype;
 
@@ -485,21 +486,36 @@ typedef struct CodeBall {
     int tick;
     double* actions;
     double* rewards;
+    double* terminals;
+    int rounds;
 } CodeBall;
 
-void goal_scored(CodeBall *env, bool side) {
-    for (int i = 0; i < env->n_robots; i++) {
-        env->rewards[i] = env->robots[i].side == side ? 1.0 : -1.0;
-    }
+void allocate(CodeBall* env) {
+    env->robots = (Entity*)calloc(env->n_robots, sizeof(Entity));
+    env->nitro_packs = (NitroPack*)calloc(env->n_nitros, sizeof(NitroPack));
+    env->actions = (double*)calloc(env->n_robots * 4, sizeof(double));
+    env->rewards = (double*)calloc(env->n_robots, sizeof(double));
+    env->terminals = (double*)calloc(env->n_robots, sizeof(double));
 }
 
-void reset(CodeBall* env) {
+void free_allocated(CodeBall* env) {
+    free(env->robots);
+    free(env->nitro_packs);
+    free(env->actions);
+    free(env->rewards);
+    free(env->terminals);
+}
+
+void reset_positions(CodeBall* env) {
     Entity* robots = env->robots;
     for (int i = 0; i < env->n_robots; i++) {
-        robots[i].position.x =
-            ((sim_dtype)rand() / RAND_MAX) * (arena.width / 2) * (i % 2 == 0 ? -1 : 1);
+        sim_dtype quarter = (env->n_robots / 2 - 1) / 2.0;
+        sim_dtype distance = arena.width * 0.4;
+        robots[i].position.x = ((i / 2) / quarter - quarter) * distance * 0.8;
         robots[i].position.z =
-            ((sim_dtype)rand() / RAND_MAX) * (arena.depth / 2) * (i % 2 == 0 ? -1 : 1);
+            sqrtf(distance * distance -
+                  robots[i].position.x * robots[i].position.x) *
+            (i % 2 == 0 ? -1 : 1);
         robots[i].position.y = 0;
         robots[i].velocity = (Vec3D){0, 0, 0};
         robots[i].radius = ROBOT_MIN_RADIUS;
@@ -534,9 +550,29 @@ void reset(CodeBall* env) {
     env->ball = ball;
 
     memset(env->actions, 0, env->n_robots * 4 * sizeof(double));
-    memset(env->rewards, 0, env->n_robots * sizeof(double));
-
     env->tick = 0;
+}
+
+void goal_scored(CodeBall *env, bool side) {
+    for (int i = 0; i < env->n_robots; i++) {
+        env->rewards[i] += env->robots[i].side == side ? 1.0 : 0.0;
+    }
+    env->rounds++;
+    if (env->rounds >= MAX_ROUNDS) {
+        for (int i = 0; i < env->n_robots; i++) {
+            env->terminals[i] =
+                env->rewards[i] >= (MAX_ROUNDS + 1) / 2 ? 1.0 : -1.0;
+        }
+    }
+    reset_positions(env);
+}
+
+void reset(CodeBall* env) {
+    reset_positions(env);
+    memset(env->rewards, 0, env->n_robots * sizeof(double));
+    memset(env->terminals, 0, env->n_robots * sizeof(double));
+
+    env->rounds = 0;
 }
 
 void update(sim_dtype delta_time, CodeBall* env) {
@@ -659,6 +695,8 @@ void update(sim_dtype delta_time, CodeBall* env) {
 }
 
 void step(CodeBall* env) {
+    memset(env->rewards, 0, env->n_robots * sizeof(double));
+    if (env->rounds >= MAX_ROUNDS) return;
     for (int i = 0; i < env->n_robots; i++) {
         env->robots[i].action = (Action){
             .target_velocity = {env->actions[i * 4], env->actions[i * 4 + 1],
@@ -681,18 +719,4 @@ void step(CodeBall* env) {
         }
     }
     env->tick++;
-}
-
-void allocate(CodeBall* env) {
-    env->robots = (Entity*)calloc(env->n_robots, sizeof(Entity));
-    env->nitro_packs = (NitroPack*)calloc(env->n_nitros, sizeof(NitroPack));
-    env->actions = (double*)calloc(env->n_robots * 4, sizeof(double));
-    env->rewards = (double*)calloc(env->n_robots, sizeof(double));
-}
-
-void free_allocated(CodeBall* env) {
-    free(env->robots);
-    free(env->nitro_packs);
-    free(env->actions);
-    free(env->rewards);
 }

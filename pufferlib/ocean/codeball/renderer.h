@@ -44,7 +44,7 @@ Client* make_client() {
     client->sphere = LoadModelFromMesh(sphere);
     client->sphere.materials[0].shader = client->shader;
 
-    SetTargetFPS(60);
+    SetTargetFPS(TICKS_PER_SECOND);
 
     return client;
 }
