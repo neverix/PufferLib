@@ -4,9 +4,9 @@ from tqdm.auto import trange
 import pufferlib
 
 try:
-    from .cy_codeball import CyCodeBall, robot_max_jump_speed
+    from .cy_codeball import CyCodeBall, robot_max_jump_speed, robot_max_ground_speed
 except ImportError:
-    from cy_codeball import CyCodeBall, robot_max_jump_speed
+    from cy_codeball import CyCodeBall, robot_max_jump_speed, robot_max_ground_speed
 
 import gymnasium as gym
 import numpy as np
@@ -14,28 +14,35 @@ import pufferlib
 
 
 class CodeBall(pufferlib.PufferEnv):
-    def __init__(self, num_envs=2, n_robots=6, n_nitros=2, max_steps=1000, buf=None):
+    def __init__(self, num_envs=2, n_robots=6, n_nitros=2, max_steps=1000,
+                 reward_mul=10000.0,
+                 frame_skip=4, buf=None):
         self.num_envs = num_envs
         self.num_agents = n_robots * num_envs
         self.n_robots = n_robots
         self.n_nitros = n_nitros
         self.max_steps = max_steps
+        
+        self.reward_mul = reward_mul
+        self.frame_skip = frame_skip
 
         # Define observation and action spaces
         self.single_observation_space = gym.spaces.Box(low=-128, high=128, shape=(6 * (self.n_robots + 1),), dtype=np.float32)
         self.single_action_space = gym.spaces.MultiDiscrete([9, 2])
+        self.frame_skip = frame_skip
 
         super().__init__(buf=buf)
 
-        self.c_envs = CyCodeBall(self.num_envs, self.n_robots, self.n_nitros)
+        self.c_envs = CyCodeBall(self.num_envs, self.n_robots, self.n_nitros, self.frame_skip)
 
     def _get_observations(self):
         return self.c_envs.get_observations()
 
     def reset(self, seed=None):
         if seed is not None:
-            if len(seed) == 1:
-                seed = int(seed[0])
+            if isinstance(seed, (list, tuple, np.ndarray)):
+                if len(seed) == 1:
+                    seed = int(seed[0])
             if isinstance(seed, int):
                 seed = np.full(self.num_envs, seed, dtype=np.int64)
             self.c_envs.reset(seed)
@@ -50,18 +57,17 @@ class CodeBall(pufferlib.PufferEnv):
         vel_actions = actions[:, 0]
         jump_actions = actions[:, 1]
         vels = np.array([[0.0, 0.0], [-1.0, 0.0], [-1.0, -1.0], [0.0, -1.0], [1.0, -1.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [-1.0, 1.0]])
-        vel = vels[vel_actions]
+        vel = vels[vel_actions] * robot_max_ground_speed
         jump = jump_actions.astype(np.bool_) * robot_max_jump_speed
-        actions = np.concatenate([vel, jump[..., None], jump[..., None] * 0], axis=-1)
+        actions = np.stack([vel[..., 0], vel[..., 0] * 0, vel[..., 1], jump], axis=-1)
         reshaped_actions = actions.reshape(self.num_envs, self.n_robots, 4)
         self.c_envs.step(reshaped_actions)
 
         truncated = np.array([self.c_envs.get_tick() >= self.max_steps for i in range(self.num_envs)])
         terminated = np.any(self.c_envs.get_terminals() != 0, axis=1)
-
         return (
             self._get_observations(),
-            self.c_envs.get_rewards(),
+            self.c_envs.get_rewards() * self.reward_mul,
             terminated,
             truncated,
             [{}] * self.num_envs  # Empty infos
@@ -84,6 +90,9 @@ if __name__ == '__main__':
     all_obs = []
     all_rewards = []
     for _ in trange(10000):
+        actions[:, 0] = np.random.randint(0, 9, size=actions.shape[0])
+        # actions[::2, 0] = 6 + np.random.randint(0, 3, size=actions.shape[0] // 2)
+        # actions[1::2, 0] = 2 + np.random.randint(0, 3, size=actions.shape[0] // 2)
         obs, rewards, terminated, truncated, info = env.step(actions)
         all_obs.append(obs)
         all_rewards.append(rewards)
@@ -96,7 +105,7 @@ if __name__ == '__main__':
     plt.plot(obs[:, 0, -1, 0], label="Ball X")
     plt.plot(obs[:, 0, -1, 1], label="Ball Y")
     plt.plot(obs[:, 0, -1, 2], label="Ball Z")
-    plt.plot(rewards[:, 0, 0] * 1000, label="Rewards")
+    plt.plot(rewards[:, 0, 0] * 100, label="Rewards")
     plt.legend()
     plt.pause(5)
     plt.close()

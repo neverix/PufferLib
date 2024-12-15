@@ -9,6 +9,7 @@ include "codeball.pxd"
 
 cdef extern from "codeball.h":
     cdef double ROBOT_MAX_JUMP_SPEED
+    cdef double ROBOT_MAX_GROUND_SPEED
 
 cpdef vec3d_dtype():
     cdef Vec3D v
@@ -29,6 +30,7 @@ cpdef ent_array(Entity e):
         dtype=np.float64)
 
 robot_max_jump_speed = ROBOT_MAX_JUMP_SPEED
+robot_max_ground_speed = ROBOT_MAX_GROUND_SPEED
 
 cdef class CyCodeBall:
     cdef CodeBall* envs
@@ -36,7 +38,7 @@ cdef class CyCodeBall:
     cdef double* action_buffer
     cdef double* reward_buffer
 
-    def __init__(self, int num_envs, int n_robots, int n_nitros):
+    def __init__(self, int num_envs, int n_robots, int n_nitros, int frame_skip):
         self.num_envs = num_envs
         self.envs = <CodeBall*>calloc(num_envs, sizeof(CodeBall))
         self.action_buffer = <double*>calloc(num_envs * n_robots * 4, sizeof(double))
@@ -46,6 +48,7 @@ cdef class CyCodeBall:
         for i in range(num_envs):
             self.envs[i].n_robots = n_robots
             self.envs[i].n_nitros = n_nitros
+            self.envs[i].frame_skip = frame_skip
             allocate(&self.envs[i]) # allocate memory for each env
 
     def get_observations(self):

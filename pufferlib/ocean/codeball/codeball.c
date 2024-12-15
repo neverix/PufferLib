@@ -22,7 +22,7 @@ int main() {
     struct timeval start, end;
     gettimeofday(&start, NULL);
 
-    int initial_steps = 2000;
+    int initial_steps = 2;
 
     for (int i = 0; i < 10000; i++) {
         if (WindowShouldClose()) break;
@@ -40,7 +40,7 @@ int main() {
                     }
                 }
             }
-            tgt = vec3d_multiply(tgt, 4.0);
+            tgt = vec3d_multiply(tgt, ROBOT_MAX_GROUND_SPEED);
             env.actions[j * 4] = tgt.x;
             env.actions[j * 4 + 1] = tgt.y;
             env.actions[j * 4 + 2] = tgt.z;

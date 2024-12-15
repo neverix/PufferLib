@@ -5,6 +5,8 @@
 #include "rlgl.h"
 #include <sys/time.h>
 
+#define SLOWDOWN 4
+
 typedef struct Client Client;
 struct Client {
     float width;
@@ -44,7 +46,7 @@ Client* make_client() {
     client->sphere = LoadModelFromMesh(sphere);
     client->sphere.materials[0].shader = client->shader;
 
-    SetTargetFPS(TICKS_PER_SECOND);
+    SetTargetFPS(TICKS_PER_SECOND / SLOWDOWN);
 
     return client;
 }
@@ -197,6 +199,10 @@ void render(Client* client, CodeBall* env) {
     EndMode3D();
 
     DrawFPS(10, 10);
+    
+    char rew_str[100];
+    snprintf(rew_str, sizeof(rew_str), "Rewards: %f %f", env->rewards[0], env->rewards[1]);
+    DrawText(rew_str, 100, 10, 20, RED);
 
     EndDrawing();
 

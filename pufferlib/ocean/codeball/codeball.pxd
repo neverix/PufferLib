@@ -89,10 +89,12 @@ cdef extern from "codeball.h":
         int n_nitros
         NitroPack* nitro_packs
         int tick
+        int* scores
         double* actions
         double* rewards
         double* terminals
         int rounds
+        int frame_skip
 
     void allocate(CodeBall* env)
 
@@ -106,4 +108,8 @@ cdef extern from "codeball.h":
 
     void update(sim_dtype delta_time, CodeBall* env)
 
+    sim_dtype goal_potential(Vec3D position, CodeBallArena* arena, bool side)
+
     void step(CodeBall* env)
+
+    sim_dtype goal_potential(Vec3D position, CodeBallArena* arena, bool side)

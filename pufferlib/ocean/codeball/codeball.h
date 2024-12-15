@@ -484,10 +484,12 @@ typedef struct CodeBall {
     int n_nitros;
     NitroPack* nitro_packs;
     int tick;
+    int* scores;
     double* actions;
     double* rewards;
     double* terminals;
     int rounds;
+    int frame_skip;
 } CodeBall;
 
 void allocate(CodeBall* env) {
@@ -496,6 +498,7 @@ void allocate(CodeBall* env) {
     env->actions = (double*)calloc(env->n_robots * 4, sizeof(double));
     env->rewards = (double*)calloc(env->n_robots, sizeof(double));
     env->terminals = (double*)calloc(env->n_robots, sizeof(double));
+    env->scores = (int*)calloc(env->n_robots, sizeof(int));
 }
 
 void free_allocated(CodeBall* env) {
@@ -504,6 +507,7 @@ void free_allocated(CodeBall* env) {
     free(env->actions);
     free(env->rewards);
     free(env->terminals);
+    free(env->scores);
 }
 
 void reset_positions(CodeBall* env) {
@@ -551,17 +555,21 @@ void reset_positions(CodeBall* env) {
 
     memset(env->actions, 0, env->n_robots * 4 * sizeof(double));
     env->tick = 0;
+
+    if (env->frame_skip == 0) {
+        env->frame_skip = 1;
+    }
 }
 
 void goal_scored(CodeBall *env, bool side) {
     for (int i = 0; i < env->n_robots; i++) {
-        env->rewards[i] += env->robots[i].side == side ? 1.0 : 0.0;
+        env->scores[i] += env->robots[i].side == side ? 1 : 0;
     }
     env->rounds++;
     if (env->rounds >= MAX_ROUNDS) {
         for (int i = 0; i < env->n_robots; i++) {
             env->terminals[i] =
-                env->rewards[i] >= (MAX_ROUNDS + 1) / 2 ? 1.0 : -1.0;
+                env->scores[i] >= (MAX_ROUNDS + 1) / 2 ? 1.0 : -1.0;
         }
     }
     reset_positions(env);
@@ -571,6 +579,7 @@ void reset(CodeBall* env) {
     reset_positions(env);
     memset(env->rewards, 0, env->n_robots * sizeof(double));
     memset(env->terminals, 0, env->n_robots * sizeof(double));
+    memset(env->scores, 0, env->n_robots * sizeof(int));
 
     env->rounds = 0;
 }
@@ -673,10 +682,6 @@ void update(sim_dtype delta_time, CodeBall* env) {
     }
     collide_with_arena(ball);
 
-    if (fabs(ball->position.z) > arena.depth / 2.0 + ball->radius) {
-        goal_scored(env, ball->position.z > 0);
-    }
-
     for (int i = 0; i < env->n_robots; i++) {
         if (robots[i].nitro == MAX_NITRO_AMOUNT) continue;
         for (int j = 0; j < env->n_nitros; j++) {
@@ -694,8 +699,11 @@ void update(sim_dtype delta_time, CodeBall* env) {
     }
 }
 
+sim_dtype goal_potential(Vec3D position, CodeBallArena* arena, bool side);
+
 void step(CodeBall* env) {
     memset(env->rewards, 0, env->n_robots * sizeof(double));
+
     if (env->rounds >= MAX_ROUNDS) return;
     for (int i = 0; i < env->n_robots; i++) {
         env->robots[i].action = (Action){
@@ -705,8 +713,14 @@ void step(CodeBall* env) {
             .use_nitro = false};
     }
 
+    Vec3D ball_initial = env->ball.position;
+    Vec3D initial_positions[env->n_robots];
+    for (int i = 0; i < env->n_robots; i++) {
+        initial_positions[i] = env->robots[i].position;
+    }
+
     sim_dtype delta_time = 1.0 / TICKS_PER_SECOND;
-    for (int i = 0; i < MICROTICKS_PER_TICK; i++) {
+    for (int i = 0; i < MICROTICKS_PER_TICK * env->frame_skip; i++) {
         update(delta_time / MICROTICKS_PER_TICK, env);
     }
     NitroPack* nitro_packs = env->nitro_packs;
@@ -718,5 +732,45 @@ void step(CodeBall* env) {
             }
         }
     }
+
+    Vec3D ball_final = env->ball.position;
+
+    for (int i = 0; i < env->n_robots; i++) {
+        sim_dtype initial_potential = goal_potential(ball_initial, &arena,
+                                                     env->robots[i].side);
+        sim_dtype final_potential = goal_potential(ball_final, &arena,
+                                                    env->robots[i].side);
+        env->rewards[i] = (initial_potential - final_potential) / arena.depth * 2.0;
+        if (env->rewards[i] == 0) {
+            sim_dtype initial_distance = vec3d_length(
+                vec3d_subtract(ball_initial, initial_positions[i]));
+            sim_dtype final_distance = vec3d_length(
+                vec3d_subtract(ball_final, env->robots[i].position));
+            env->rewards[i] = (initial_distance - final_distance) / arena.depth;
+        }
+    }
+    printf("%f\n", env->rewards[0]);
+
+    if (fabs(ball_final.z) > arena.depth / 2.0 + env->ball.radius) {
+        goal_scored(env, ball_final.z > 0);
+    }
+
     env->tick++;
+}
+
+sim_dtype goal_potential(Vec3D position,
+                                            CodeBallArena *arena,
+                                            bool side) {
+    if (!side) {
+        position.z = -position.z;
+    }
+    sim_dtype z_offset = arena->depth / 2.0 - position.z;
+    if (z_offset < 0) {
+        return 0;
+    }
+    if (fabs(position.x) < arena->goal_width / 2.0) {
+        return z_offset;
+    }
+    sim_dtype x_offset = fabs(position.x) - arena->goal_width / 2.0;
+    return sqrtf(x_offset * x_offset + z_offset * z_offset);
 }
