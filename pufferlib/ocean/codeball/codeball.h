@@ -35,8 +35,72 @@
 #define NITRO_PACK_AMOUNT 4  // Corrected: There are 4 nitro packs
 #define NITRO_PACK_RESPAWN_TICKS (10 * TICKS_PER_SECOND)
 #define GRAVITY 30.0
+#define SCORE_REWARD 1.0
 
 typedef double sim_dtype;
+
+#define LOG_BUFFER_SIZE 1024
+
+typedef struct Log Log;
+struct Log {
+    double episode_return;
+    int episode_length;
+    double winner;  // 0 for tie, 1 for 1, -1 for 0
+};
+
+typedef struct LogBuffer LogBuffer;
+struct LogBuffer {
+    Log* logs;
+    int length;
+    int idx;
+};
+
+LogBuffer* allocate_logbuffer(int size) {
+    LogBuffer* logs = (LogBuffer*)calloc(1, sizeof(LogBuffer));
+    logs->logs = (Log*)calloc(size, sizeof(Log));
+    logs->length = size;
+    logs->idx = 0;
+    return logs;
+}
+
+void free_logbuffer(LogBuffer* buffer) {
+    free(buffer->logs);
+    free(buffer);
+}
+
+void add_log(LogBuffer* logs, Log* log) {
+    if (logs->idx == logs->length) {
+        logs->idx = 1;
+    }
+    logs->logs[logs->idx] = *log;
+    logs->idx += 1;
+}
+
+Log aggregate(LogBuffer* logs) {
+    Log log = {0};
+    if (logs->idx == 0) {
+        return log;
+    }
+    for (int i = 0; i < logs->idx; i++) {
+        log.episode_return += logs->logs[i].episode_return;
+        log.episode_length += logs->logs[i].episode_length;
+        log.winner += logs->logs[i].winner;
+    }
+    log.episode_return /= logs->idx;
+    log.episode_length /= logs->idx;
+    log.winner /= logs->idx;
+    return log;
+}
+
+Log aggregate_and_clear(LogBuffer* logs) {
+    Log log = {0};
+    if (logs->idx == 0) {
+        return log;
+    }
+    log = aggregate(logs);
+    logs->idx = 0;
+    return log;
+}
 
 // Arena parameters (from the description)
 typedef struct {
@@ -483,11 +547,12 @@ typedef struct CodeBall {
     int n_nitros;
     NitroPack* nitro_packs;
     int tick;
-    int* scores;
     double* actions;
     double* rewards;
     bool terminal;
     int frame_skip;
+    Log log;
+    LogBuffer* log_buffer;
 } CodeBall;
 
 void allocate(CodeBall* env) {
@@ -495,7 +560,7 @@ void allocate(CodeBall* env) {
     env->nitro_packs = (NitroPack*)calloc(env->n_nitros, sizeof(NitroPack));
     env->actions = (double*)calloc(env->n_robots * 4, sizeof(double));
     env->rewards = (double*)calloc(env->n_robots, sizeof(double));
-    env->scores = (int*)calloc(env->n_robots, sizeof(int));
+    env->log_buffer = allocate_logbuffer(LOG_BUFFER_SIZE);
 }
 
 void free_allocated(CodeBall* env) {
@@ -503,7 +568,7 @@ void free_allocated(CodeBall* env) {
     free(env->nitro_packs);
     free(env->actions);
     free(env->rewards);
-    free(env->scores);
+    free_logbuffer(env->log_buffer);
 }
 
 void reset_positions(CodeBall* env) {
@@ -550,6 +615,7 @@ void reset_positions(CodeBall* env) {
     env->ball = ball;
 
     memset(env->actions, 0, env->n_robots * 4 * sizeof(double));
+    memset(env->rewards, 0, env->n_robots * sizeof(double));
     env->tick = 0;
 
     if (env->frame_skip == 0) {
@@ -559,18 +625,25 @@ void reset_positions(CodeBall* env) {
 
 void goal_scored(CodeBall *env, bool side) {
     for (int i = 0; i < env->n_robots; i++) {
-        env->scores[i] += env->robots[i].side == side ? 1 : 0;
+        env->rewards[i] += env->robots[i].side == side ? SCORE_REWARD : -SCORE_REWARD;
     }
     env->terminal = true;
+    env->log.winner = side ? 1 : -1;
+
+    add_log(env->log_buffer, &env->log);
+    env->log = (Log){0};
+
     reset_positions(env);
 }
 
 void reset(CodeBall* env) {
     reset_positions(env);
     memset(env->rewards, 0, env->n_robots * sizeof(double));
-    memset(env->scores, 0, env->n_robots * sizeof(int));
 
     env->terminal = false;
+    
+    add_log(env->log_buffer, &env->log);
+    env->log = (Log){0};
 }
 
 void update(sim_dtype delta_time, CodeBall* env) {
@@ -741,6 +814,12 @@ void step(CodeBall* env) {
         // env->rewards[i] = (((double)rand() / RAND_MAX) - 0.5) * 0.01;
     }
 
+    env->log.episode_length++;  // Increment episode length each step
+    for (int i = 0; i < env->n_robots; i++) {
+        env->log.episode_return +=
+            env->rewards[i];  // Accumulate the return for the episode
+    }
+
     if (fabs(ball_final.z) > arena.depth / 2.0 + env->ball.radius) {
         goal_scored(env, ball_final.z > 0);
     }
@@ -768,7 +847,8 @@ sim_dtype goal_potential(Vec3D position,
 void make_observation(CodeBall* env, float *buffer) {
     Entity *ent;
     for (int target = 0; target < env->n_robots + 2; target++) {
-        int o = target * ((env->n_robots + 2) * 6);
+        // int o = target * ((env->n_robots + 2) * 6);
+        int o = target * ((env->n_robots + 2) * 3);
         for (int i = 0; i < env->n_robots + 2; i++) {
             if (i < env->n_robots) {
                 ent = &env->robots[i];
@@ -780,9 +860,9 @@ void make_observation(CodeBall* env, float *buffer) {
             buffer[o + i * 6 + 0] = ent->position.x / arena.width;
             buffer[o + i * 6 + 1] = ent->position.y / arena.height;
             buffer[o + i * 6 + 2] = ent->position.z / arena.depth;
-            buffer[o + i * 6 + 3] = ent->velocity.x / MAX_ENTITY_SPEED;
-            buffer[o + i * 6 + 4] = ent->velocity.y / MAX_ENTITY_SPEED;
-            buffer[o + i * 6 + 5] = ent->velocity.z / MAX_ENTITY_SPEED;
+            // buffer[o + i * 6 + 3] = ent->velocity.x / MAX_ENTITY_SPEED;
+            // buffer[o + i * 6 + 4] = ent->velocity.y / MAX_ENTITY_SPEED;
+            // buffer[o + i * 6 + 5] = ent->velocity.z / MAX_ENTITY_SPEED;
         }
     }
 }

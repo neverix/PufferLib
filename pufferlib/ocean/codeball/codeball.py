@@ -24,7 +24,7 @@ class CodeBall(pufferlib.PufferEnv):
         self.max_steps = max_steps
 
         # Define observation and action spaces
-        self.single_observation_space = gym.spaces.Box(low=-1, high=1, shape=(self.n_robots + 2, 6), dtype=np.float32)
+        self.single_observation_space = gym.spaces.Box(low=-1, high=1, shape=(self.n_robots + 2, 3), dtype=np.float32)
         self.single_action_space = gym.spaces.MultiDiscrete([8, 2])
 
         super().__init__(buf=buf)
@@ -50,7 +50,8 @@ class CodeBall(pufferlib.PufferEnv):
             self.rewards,
             self.terminals,
             self.truncations,
-            [{}] * self.num_envs  # Empty infos
+            [self.c_envs.log()],
+            # [self.c_envs.log_nth(i) for i in range(self.num_envs)],
         )
 
     def close(self):

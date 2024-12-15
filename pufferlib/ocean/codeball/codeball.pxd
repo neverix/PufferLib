@@ -2,6 +2,26 @@ cdef extern from "codeball.h":
 
     ctypedef double sim_dtype
 
+    cdef struct Log:
+        double episode_return
+        int episode_length
+        double winner
+
+    cdef struct LogBuffer:
+        Log* logs
+        int length
+        int idx
+
+    LogBuffer* allocate_logbuffer(int size)
+
+    void free_logbuffer(LogBuffer* buffer)
+
+    void add_log(LogBuffer* logs, Log* log)
+
+    Log aggregate(LogBuffer* logs)
+
+    Log aggregate_and_clear(LogBuffer* logs)
+
     ctypedef struct CodeBallArena:
         sim_dtype width
         sim_dtype height
@@ -89,11 +109,12 @@ cdef extern from "codeball.h":
         int n_nitros
         NitroPack* nitro_packs
         int tick
-        int* scores
         double* actions
         double* rewards
         bool terminal
         int frame_skip
+        Log log
+        LogBuffer* log_buffer
 
     void allocate(CodeBall* env)
 

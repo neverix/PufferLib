@@ -44,6 +44,7 @@ cdef class CyCodeBall:
     cdef float[:, :, :] observation_buffer
     cdef bool[:] terminal_buffer
     cdef bool[:] truncate_buffer
+    cdef LogBuffer* log_aggregator
 
     def __init__(self,
         int num_envs, int n_robots, int n_nitros, int frame_skip, double reward_mul, int max_steps,
@@ -67,6 +68,8 @@ cdef class CyCodeBall:
             self.envs[i].n_nitros = n_nitros
             self.envs[i].frame_skip = frame_skip
             allocate(&self.envs[i]) # allocate memory for each env
+        
+        self.log_aggregator = allocate_logbuffer(self.num_envs);
 
     def reset(self):
         cdef int i
@@ -83,6 +86,20 @@ cdef class CyCodeBall:
             for j in range(self.n_robots):
                 self.reward_buffer[i * self.n_robots + j] = self.envs[i].rewards[j] * self.reward_mul
                 self.terminal_buffer[i * self.n_robots + j] = self.envs[i].terminal
+
+    def log_nth(self, int i):
+        cdef Log log
+        log = aggregate(self.envs[i].log_buffer)
+        return log
+
+    def log(self):
+        cdef int i
+        cdef Log log
+        for i in range(self.num_envs):
+            log = aggregate(self.envs[i].log_buffer)
+            add_log(self.log_aggregator, &log)
+        log = aggregate(self.log_aggregator)
+        return log
 
 
     def step(self,):
@@ -116,3 +133,4 @@ cdef class CyCodeBall:
         for i in range(self.num_envs):
             free_allocated(&self.envs[i])
         free(self.envs)
+        free_logbuffer(self.log_aggregator)
