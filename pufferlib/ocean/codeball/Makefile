@@ -20,7 +20,7 @@ codeball: $(CFILES) $(HFILES)
 codeball.pxd: cy_codeball.pyx codeball.h
 	autopxd codeball.h codeball.pxd
 
-cy_codeball.*.so: $(CFILES) $(HFILES) cy_codeball.pyx codeball.pxd
+cy_codeball.${PYTHON_SO_POSTFIX}: $(CFILES) $(HFILES) cy_codeball.pyx codeball.pxd
 	python setup.py build_ext --inplace
 
 run_py: cy_codeball.${PYTHON_SO_POSTFIX}

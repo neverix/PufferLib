@@ -5,7 +5,7 @@
 #include "rlgl.h"
 #include <sys/time.h>
 
-#define SLOWDOWN 4
+#define SLOWDOWN 1
 
 typedef struct Client Client;
 struct Client {
@@ -201,7 +201,8 @@ void render(Client* client, CodeBall* env) {
     DrawFPS(10, 10);
     
     char rew_str[100];
-    snprintf(rew_str, sizeof(rew_str), "Rewards: %f %f", env->rewards[0], env->rewards[1]);
+    snprintf(rew_str, sizeof(rew_str), "Rewards: %f %f", env->rewards[0],
+             env->rewards[1]);
     DrawText(rew_str, 100, 10, 20, RED);
 
     EndDrawing();

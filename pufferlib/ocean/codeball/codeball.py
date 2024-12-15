@@ -15,7 +15,7 @@ import pufferlib
 
 class CodeBall(pufferlib.PufferEnv):
     def __init__(self, num_envs=2, n_robots=6, n_nitros=2, max_steps=1000,
-                 reward_mul=10.0,
+                 reward_mul=1.0,
                  frame_skip=4, buf=None):
         self.num_envs = num_envs
         self.num_agents = n_robots * num_envs
@@ -24,16 +24,14 @@ class CodeBall(pufferlib.PufferEnv):
         self.max_steps = max_steps
 
         # Define observation and action spaces
-        self.single_observation_space = gym.spaces.Box(low=-128, high=128, shape=(self.n_robots + 1, 6), dtype=np.float32)
+        self.single_observation_space = gym.spaces.Box(low=-1, high=1, shape=(self.n_robots + 2, 6), dtype=np.float32)
         self.single_action_space = gym.spaces.MultiDiscrete([8, 2])
-        
-        self.tick = 0
 
         super().__init__(buf=buf)
 
         self.c_envs = CyCodeBall(
-            self.num_envs, self.n_robots, self.n_nitros, frame_skip, reward_mul,
-            self.observations, self.actions, self.rewards, self.terminals
+            self.num_envs, self.n_robots, self.n_nitros, frame_skip, reward_mul, max_steps,
+            self.observations, self.actions, self.rewards, self.terminals, self.truncations,
         )
 
     def reset(self, seed=None):
@@ -47,7 +45,6 @@ class CodeBall(pufferlib.PufferEnv):
         self.actions[:] = actions
         self.c_envs.step()
 
-        self.tick += 1
         return (
             self.observations,
             self.rewards,

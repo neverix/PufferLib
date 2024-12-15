@@ -31,30 +31,35 @@ cdef ent_array(Entity e):
 
 robot_max_jump_speed = ROBOT_MAX_JUMP_SPEED
 robot_max_ground_speed = ROBOT_MAX_GROUND_SPEED
+cdef float arena_size = max(arena.width, arena.depth) / 2
 
 cdef class CyCodeBall:
     cdef CodeBall* envs
     cdef int num_envs
     cdef int n_robots
+    cdef int max_steps
     cdef double reward_mul
     cdef int[:, :] action_buffer
     cdef float[:] reward_buffer
     cdef float[:, :, :] observation_buffer
     cdef bool[:] terminal_buffer
+    cdef bool[:] truncate_buffer
 
     def __init__(self,
-        int num_envs, int n_robots, int n_nitros, int frame_skip, double reward_mul,
+        int num_envs, int n_robots, int n_nitros, int frame_skip, double reward_mul, int max_steps,
         float [:, :, :] observations,
-        int [:, :] actions, float [:] rewards, bool [:] terminals
+        int [:, :] actions, float [:] rewards, bool [:] terminals, bool [:] truncations
     ):
         self.num_envs = num_envs
         self.n_robots = n_robots
+        self.max_steps = max_steps
         self.reward_mul = reward_mul
         self.envs = <CodeBall*>calloc(num_envs, sizeof(CodeBall))
         self.observation_buffer = observations
         self.action_buffer = actions
         self.reward_buffer = rewards
         self.terminal_buffer = terminals
+        self.truncate_buffer = truncations
 
         cdef int i
         for i in range(num_envs):
@@ -71,40 +76,22 @@ cdef class CyCodeBall:
         self._observe()
 
     def _observe(self):
-        cdef int i, j, k, u
-        cdef int env_base, ent_base
-        cdef Entity *ent
-        cdef Vec3D *vec
-        cdef float val
+        cdef int i, j
         for i in range(self.num_envs):
-            for k in range(self.n_robots):
-                env_base = i * self.n_robots + k
-                for j in range(self.n_robots + 1):
-                    if j < self.n_robots:
-                        ent = &self.envs[i].robots[j]
-                    else:
-                        ent = &self.envs[i].ball
-                    for u in range(6):
-                        if u < 3:
-                            vec = &ent.position
-                        else:
-                            vec = &ent.velocity
-                        if u % 3 == 0:
-                            val = vec.x
-                        elif u % 3 == 1:
-                            val = vec.y
-                        else:
-                            val = vec.z
-                        self.observation_buffer[env_base, j, u] = val
-
+            make_observation(&self.envs[0], &self.observation_buffer[i, 0, 0])
+        for i in range(self.num_envs):
             for j in range(self.n_robots):
                 self.reward_buffer[i * self.n_robots + j] = self.envs[i].rewards[j] * self.reward_mul
-                self.terminal_buffer[i * self.n_robots + j] = self.envs[i].terminals[j] != 0
+                self.terminal_buffer[i * self.n_robots + j] = self.envs[i].terminal
 
 
     def step(self,):
         cdef int i, j, vel_action, jump_action
         cdef float vel_x, vel_z
+        for i in range(self.num_envs):
+            if self.envs[i].tick >= self.max_steps:
+                self.truncate_buffer[i] = True
+                reset(&self.envs[i])
 
         for i in range(self.num_envs):
             for j in range(self.n_robots):
