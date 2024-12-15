@@ -144,14 +144,10 @@ void render(Client* client, CodeBall* env) {
                     LIGHTGRAY);  // Back left
     }
 
-    MyDrawPlane((Vector3){0, arena_size.y / 2, -arena_size.z / 2},
-                (Vector3){0, 0, -1}, arena_size.x, arena_size.y,
-                LIGHTGRAY);  // Front
-
     // Draw Goals (as boxes)
     Vector3 goal_size = {arena.goal_width, arena.goal_height, arena.goal_depth};
 
-    Color goal_colors[2] = {GREEN, YELLOW};
+    Color goal_colors[2] = {BLUE, RED};
     for (int gi = 0; gi < 2; gi++) {
         Color goal_color = goal_colors[gi];
         int sign = gi == 0 ? 1 : -1;

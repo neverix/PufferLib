@@ -1,4 +1,5 @@
 CFILES=codeball.c
+HFILES=codeball.h renderer.h
 CFLAGS=\
 	-lm -I../../../raylib/include -I../../../pufferlib -lpthread ../../../raylib/lib/libraylib.a -lglfw -lobjc \
 	-framework Cocoa -framework OpenGL -framework IOKit -framework CoreVideo -framework GLUT -framework AppKit \
@@ -11,7 +12,7 @@ ARCH=$(shell uname -m)
 clean:
 	rm -f codeball
 
-codeball: $(CFILES) codeball.h
+codeball: $(CFILES) $(HFILES)
 	gcc $(CFLAGS) $(CFILES) -o codeball
 
 run: codeball
