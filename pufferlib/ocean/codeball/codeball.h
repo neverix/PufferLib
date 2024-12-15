@@ -14,10 +14,10 @@
 #define ROBOT_MAX_GROUND_SPEED 30.0
 #define ROBOT_ARENA_E 0.0
 #define ROBOT_MASS 2.0
-#define TICKS_PER_SECOND 15
+#define TICKS_PER_SECOND 60
 // #define MICROTICKS_PER_TICK 100
 // #define MICROTICKS_PER_TICK 20
-#define MICROTICKS_PER_TICK 4
+#define MICROTICKS_PER_TICK 1
 #define RESET_TICKS (2 * TICKS_PER_SECOND)
 #define BALL_ARENA_E 0.7
 #define BALL_RADIUS 2.0
@@ -748,8 +748,8 @@ void step(CodeBall* env) {
                 vec3d_subtract(ball_final, env->robots[i].position));
             env->rewards[i] = (initial_distance - final_distance) / arena.depth;
         }
+        // env->rewards[i] = (((double)rand() / RAND_MAX) - 0.5) * 0.01;
     }
-    printf("%f\n", env->rewards[0]);
 
     if (fabs(ball_final.z) > arena.depth / 2.0 + env->ball.radius) {
         goal_scored(env, ball_final.z > 0);

@@ -23,7 +23,7 @@ cpdef nitro_pack_dtype():
     cdef NitroPack np_
     return np.asarray(<NitroPack[:1]>&np_).dtype
 
-cpdef ent_array(Entity e):
+cdef ent_array(Entity e):
     return np.array([
         e.position.x, e.position.y, e.position.z,
         e.velocity.x, e.velocity.y, e.velocity.z,],
@@ -35,14 +35,26 @@ robot_max_ground_speed = ROBOT_MAX_GROUND_SPEED
 cdef class CyCodeBall:
     cdef CodeBall* envs
     cdef int num_envs
-    cdef double* action_buffer
-    cdef double* reward_buffer
+    cdef int n_robots
+    cdef double reward_mul
+    cdef int[:, :] action_buffer
+    cdef float[:] reward_buffer
+    cdef float[:, :, :] observation_buffer
+    cdef bool[:] terminal_buffer
 
-    def __init__(self, int num_envs, int n_robots, int n_nitros, int frame_skip):
+    def __init__(self,
+        int num_envs, int n_robots, int n_nitros, int frame_skip, double reward_mul,
+        float [:, :, :] observations,
+        int [:, :] actions, float [:] rewards, bool [:] terminals
+    ):
         self.num_envs = num_envs
+        self.n_robots = n_robots
+        self.reward_mul = reward_mul
         self.envs = <CodeBall*>calloc(num_envs, sizeof(CodeBall))
-        self.action_buffer = <double*>calloc(num_envs * n_robots * 4, sizeof(double))
-        self.reward_buffer = <double*>calloc(num_envs * n_robots, sizeof(double))
+        self.observation_buffer = observations
+        self.action_buffer = actions
+        self.reward_buffer = rewards
+        self.terminal_buffer = terminals
 
         cdef int i
         for i in range(num_envs):
@@ -51,51 +63,66 @@ cdef class CyCodeBall:
             self.envs[i].frame_skip = frame_skip
             allocate(&self.envs[i]) # allocate memory for each env
 
-    def get_observations(self):
-        cdef cnp.ndarray[cnp.float64_t, ndim=3] obs = \
-            np.empty((self.num_envs, self.envs[0].n_robots + 1, 6), dtype=np.float64)
-        cdef int i, j
-        for i in range(self.num_envs):
-            for j in range(self.envs[0].n_robots):
-                obs[i, j] = ent_array(self.envs[i].robots[j])
-            obs[i, self.envs[0].n_robots] = ent_array(self.envs[i].ball)
-        return obs
-
-    def get_terminals(self):
-        cdef cnp.ndarray[cnp.float64_t, ndim=2] terminals = \
-            np.empty((self.num_envs, self.envs[0].n_robots), dtype=np.float64)
-        cdef int i, j
-        for i in range(self.num_envs):
-            for j in range(self.envs[0].n_robots):
-                terminals[i, j] = self.envs[i].terminals[j]
-        return terminals
-    
-    def get_rewards(self):
-        cdef cnp.ndarray[cnp.float64_t, ndim=2] rewards = \
-            np.empty((self.num_envs, self.envs[0].n_robots), dtype=np.float64)
-        cdef int i, j
-        for i in range(self.num_envs):
-            for j in range(self.envs[0].n_robots):
-                rewards[i, j] = self.envs[i].rewards[j]
-        return rewards
-
-    def get_tick(self):
-        return self.envs[0].tick
-
-    def reset(self, seeds):
+    def reset(self):
         cdef int i
         for i in range(self.num_envs):
-            srand(seeds[i])
             reset(&self.envs[i])
+        
+        self._observe()
 
-    def step(self, cnp.ndarray[cnp.float64_t, ndim=3] actions):
-        cdef int i, j
+    def _observe(self):
+        cdef int i, j, k, u
+        cdef int env_base, ent_base
+        cdef Entity *ent
+        cdef Vec3D *vec
+        cdef float val
         for i in range(self.num_envs):
-            for j in range(self.envs[0].n_robots):
-                for k in range(4):
-                    self.envs[i].actions[j * 4 + k] = actions[i, j, k]
+            for k in range(self.n_robots):
+                env_base = i * self.n_robots + k
+                for j in range(self.n_robots + 1):
+                    if j < self.n_robots:
+                        ent = &self.envs[i].robots[j]
+                    else:
+                        ent = &self.envs[i].ball
+                    for u in range(6):
+                        if u < 3:
+                            vec = &ent.position
+                        else:
+                            vec = &ent.velocity
+                        if u % 3 == 0:
+                            val = vec.x
+                        elif u % 3 == 1:
+                            val = vec.y
+                        else:
+                            val = vec.z
+                        self.observation_buffer[env_base, j, u] = val
+
+            for j in range(self.n_robots):
+                self.reward_buffer[i * self.n_robots + j] = self.envs[i].rewards[j] * self.reward_mul
+                self.terminal_buffer[i * self.n_robots + j] = self.envs[i].terminals[j] != 0
+
+
+    def step(self,):
+        cdef int i, j, vel_action, jump_action
+        cdef float vel_x, vel_z
+
+        for i in range(self.num_envs):
+            for j in range(self.n_robots):
+                vel_action = self.action_buffer[i * self.n_robots + j, 0]
+                if vel_action == 4:
+                    vel_action = 8
+                jump_action = self.action_buffer[i * self.n_robots + j, 1] > 0
+                vel_x = vel_action % 3 - 1
+                vel_z = vel_action // 3 - 1
+                self.envs[i].actions[j * 4] = vel_x * ROBOT_MAX_GROUND_SPEED
+                self.envs[i].actions[j * 4 + 1] = 0
+                self.envs[i].actions[j * 4 + 2] = vel_z * ROBOT_MAX_GROUND_SPEED
+                self.envs[i].actions[j * 4 + 3] = jump_action * ROBOT_MAX_JUMP_SPEED
+
         for i in range(self.num_envs):
             step(&self.envs[i])
+        
+        self._observe()
 
     def close(self):
         cdef int i
