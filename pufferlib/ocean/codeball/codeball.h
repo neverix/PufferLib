@@ -1,10 +1,9 @@
-#include <stdio.h>
+#pragma once
+
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
-#include <time.h>
 #include <string.h>
-#include "raylib.h"
 
 // Constants (from the description)
 #define ROBOT_MIN_RADIUS 1.0
