@@ -52,8 +52,16 @@ Client* make_client() {
 
     InitWindow(client->width, client->height, "CodeBall");
 
-    client->sphere = LoadModelFromMesh(GenMeshSphere(1.0f, 32, 32));
     client->shader = LoadShader("base.vs", "fragment.fs");
+
+    Mesh sphere = GenMeshSphere(1.0f, 32, 32);
+    for (int v = 0; v < sphere.vertexCount; v++) {
+        sphere.normals[v * 3] = v % 2 == 0 ? 1.0f : -1.0f;
+        sphere.normals[v * 3 + 1] = v % 3 == 0 ? 1.0f : -1.0f;
+        sphere.normals[v * 3 + 2] = 0.95f;
+    }
+    client->sphere = LoadModelFromMesh(sphere);
+    client->sphere.materials[0].shader = client->shader;
 
     SetTargetFPS(60);
 
@@ -72,8 +80,8 @@ Vector3 cvt(Vec3D vec) {
 // TODO instancing...
 void MyDrawSphere(Client *client, Vector3 center, float radius,
                Color color) {
-                // DrawModel(client->sphere, center, radius, color);
-                DrawSphere(center, radius, color);
+                DrawModel(client->sphere, center, radius, color);
+                // DrawSphere(center, radius, color);
 }
 
 // Custom DrawPlane function for arbitrary orientation
