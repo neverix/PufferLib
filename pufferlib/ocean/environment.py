@@ -13,6 +13,7 @@ from .moba.moba import Moba
 from .nmmo3.nmmo3 import NMMO3
 from .go.go import Go
 from .rware.rware import Rware
+from .codeball.codeball import CodeBall
 #from .rocket_lander import rocket_lander
 
 def make_foraging(width=1080, height=720, num_agents=4096, horizon=512,
@@ -134,6 +135,7 @@ MAKE_FNS = {
     'tactical': Tactical,
     'go': Go,
     'rware': Rware,
+    'codeball': CodeBall,
 
     #'rocket_lander': rocket_lander.RocketLander,
     'foraging': make_foraging,

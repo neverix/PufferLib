@@ -22,7 +22,7 @@ int main() {
     struct timeval start, end;
     gettimeofday(&start, NULL);
 
-    int initial_steps = 1;
+    int initial_steps = 2000;
 
     for (int i = 0; i < 10000; i++) {
         if (WindowShouldClose()) break;

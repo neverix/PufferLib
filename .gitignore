@@ -148,3 +148,4 @@ pufferlib/ocean/tactical/c_tactical.c
 pufferlib/ocean/grid/c_grid.c
 .idea/
 *.dSYM/
+/codeball

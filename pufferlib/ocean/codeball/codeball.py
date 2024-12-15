@@ -3,8 +3,10 @@ from tqdm.auto import trange
 
 import pufferlib
 
-import cy_codeball
-CyCodeBall = cy_codeball.CyCodeBall
+try:
+    from .cy_codeball import CyCodeBall, robot_max_jump_speed
+except ImportError:
+    from cy_codeball import CyCodeBall, robot_max_jump_speed
 
 import gymnasium as gym
 import numpy as np
@@ -20,8 +22,8 @@ class CodeBall(pufferlib.PufferEnv):
         self.max_steps = max_steps
 
         # Define observation and action spaces
-        self.single_observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(12 * (self.n_robots + 1),), dtype=np.float32)  # Adjusted shape
-        self.single_action_space = gym.spaces.MultiDiscrete([9, 2] * self.n_robots) # 9 actions for velocity, 2 for jump
+        self.single_observation_space = gym.spaces.Box(low=-128, high=128, shape=(6 * (self.n_robots + 1),), dtype=np.float32)
+        self.single_action_space = gym.spaces.MultiDiscrete([9, 2])
 
         super().__init__(buf=buf)
 
@@ -32,20 +34,24 @@ class CodeBall(pufferlib.PufferEnv):
 
     def reset(self, seed=None):
         if seed is not None:
+            if len(seed) == 1:
+                seed = int(seed[0])
+            if isinstance(seed, int):
+                seed = np.full(self.num_envs, seed, dtype=np.int64)
             self.c_envs.reset(seed)
         else:
-            self.c_envs.reset(0) # provide default seed
+            self.c_envs.reset(np.zeros(self.num_envs, dtype=np.int64)) # provide default seed
         return self._get_observations(), []
 
     def step(self, actions):
-        if actions.shape != (self.num_envs, self.n_robots * 2):
+        if actions.shape != (self.num_envs * self.n_robots, 2):
             raise ValueError(f"Actions shape incorrect. Expected {(self.num_envs, self.n_robots * 2)}, got {actions.shape}")
 
-        vel_actions = actions[:, ::2]
-        jump_actions = actions[:, 1::2]
+        vel_actions = actions[:, 0]
+        jump_actions = actions[:, 1]
         vels = np.array([[0.0, 0.0], [-1.0, 0.0], [-1.0, -1.0], [0.0, -1.0], [1.0, -1.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [-1.0, 1.0]])
         vel = vels[vel_actions]
-        jump = jump_actions.astype(np.bool_) * 15.0
+        jump = jump_actions.astype(np.bool_) * robot_max_jump_speed
         actions = np.concatenate([vel, jump[..., None], jump[..., None] * 0], axis=-1)
         reshaped_actions = actions.reshape(self.num_envs, self.n_robots, 4)
         self.c_envs.step(reshaped_actions)
@@ -65,14 +71,16 @@ class CodeBall(pufferlib.PufferEnv):
         self.c_envs.close()
 
 if __name__ == '__main__':
-    env = CodeBall(num_envs=2)
+    env = CodeBall(num_envs=32)
     obs, _ = env.reset(seed=42)
     print("Observation Space:", env.single_observation_space)
     print("Action Space:", env.single_action_space)
     print("Initial Observations Shape:", obs.shape)
 
-    actions = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
-    actions[0, ::2] = 1
+    actions = np.array([[0, 0]])
+    actions = np.tile(actions, (env.num_envs * env.n_robots, 1))
+    # actions[:, :] = 3
+    actions[:, :] = 0
     all_obs = []
     all_rewards = []
     for _ in trange(10000):
@@ -92,7 +100,7 @@ if __name__ == '__main__':
     plt.legend()
     plt.pause(5)
     plt.close()
-    print("Rewards:", rewards)
+    print("Rewards:", rewards.sum(0))
     print("Terminated:", terminated)
     print("Truncated:", truncated)
     print("Observations shape:", obs.shape)

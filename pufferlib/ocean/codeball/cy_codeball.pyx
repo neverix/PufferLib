@@ -7,6 +7,9 @@ cdef extern from "stdbool.h":
 
 include "codeball.pxd"
 
+cdef extern from "codeball.h":
+    cdef double ROBOT_MAX_JUMP_SPEED
+
 cpdef vec3d_dtype():
     cdef Vec3D v
     return np.asarray(<Vec3D[:1]>&v).dtype
@@ -24,6 +27,8 @@ cpdef ent_array(Entity e):
         e.position.x, e.position.y, e.position.z,
         e.velocity.x, e.velocity.y, e.velocity.z,],
         dtype=np.float64)
+
+robot_max_jump_speed = ROBOT_MAX_JUMP_SPEED
 
 cdef class CyCodeBall:
     cdef CodeBall* envs
@@ -74,18 +79,14 @@ cdef class CyCodeBall:
     def get_tick(self):
         return self.envs[0].tick
 
-    def reset(self, int seed):
-        srand(seed)
+    def reset(self, seeds):
         cdef int i
         for i in range(self.num_envs):
+            srand(seeds[i])
             reset(&self.envs[i])
 
-    def step(self, actions):
-    # cpdef step(self, np.ndarray[np.float64_t, ndim=3] actions):
+    def step(self, cnp.ndarray[cnp.float64_t, ndim=3] actions):
         cdef int i, j
-        if actions.shape != (self.num_envs, self.envs[0].n_robots, 4):
-            raise ValueError("Actions array has incorrect shape.")
-
         for i in range(self.num_envs):
             for j in range(self.envs[0].n_robots):
                 for k in range(4):

@@ -14,10 +14,10 @@
 #define ROBOT_MAX_GROUND_SPEED 30.0
 #define ROBOT_ARENA_E 0.0
 #define ROBOT_MASS 2.0
-#define TICKS_PER_SECOND 30
+#define TICKS_PER_SECOND 15
 // #define MICROTICKS_PER_TICK 100
 // #define MICROTICKS_PER_TICK 20
-#define MICROTICKS_PER_TICK 1
+#define MICROTICKS_PER_TICK 4
 #define RESET_TICKS (2 * TICKS_PER_SECOND)
 #define BALL_ARENA_E 0.7
 #define BALL_RADIUS 2.0
@@ -536,7 +536,7 @@ void reset_positions(CodeBall* env) {
     ball.position.z = 0;
     ball.position.y = ((sim_dtype)rand() / RAND_MAX) * (3 * BALL_RADIUS) +
                       BALL_RADIUS;  // Random height
-    ball.velocity = (Vec3D){4, 0, 0};
+    ball.velocity = (Vec3D){0, 0, 0};
     ball.radius = BALL_RADIUS;
     ball.radius_change_speed = 0;
     ball.mass = BALL_MASS;
