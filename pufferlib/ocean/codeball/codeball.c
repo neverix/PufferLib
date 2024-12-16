@@ -13,8 +13,15 @@ int main() {
     srand(time(NULL)); // Seed the random number generator
     Client* client = make_client();
 
+    Weights* weights =
+        load_weights("../../resources/codeball_weights.bin", 136715);
+    int n_robots = 6;
+    int obs_size = (n_robots + 2) * 3;
+    int action_size = 8;
+    LinearLSTM* net = make_linearlstm(weights, n_robots, obs_size, action_size);
+
     CodeBall env;
-    env.n_robots = 6;
+    env.n_robots = n_robots;
     env.n_nitros = 4;
     allocate(&env);
     reset(&env);
@@ -24,8 +31,25 @@ int main() {
 
     int initial_steps = 2;
 
+    float observation_buffer[n_robots * obs_size];
+    int action_buffer[n_robots * action_size];
     for (int i = 0; i < 10000; i++) {
         if (WindowShouldClose()) break;
+
+        make_observation(&env, observation_buffer);
+        forward_linearlstm(net, observation_buffer, action_buffer);
+        for (int j = 0; j < n_robots; j++) {
+            int vel_action = action_buffer[j];
+            if (vel_action == 4) {
+                vel_action = 8;
+            }
+            int vel_x = vel_action % 3 - 1;
+            int vel_z = vel_action / 3 - 1;
+            env.actions[j * 4] = vel_x * ROBOT_MAX_GROUND_SPEED;
+            env.actions[j * 4 + 1] = 0;
+            env.actions[j * 4 + 2] = vel_z * ROBOT_MAX_GROUND_SPEED;
+            env.actions[j * 4 + 3] = 0;
+        }
 
         for (int j = 0; j < env.n_robots; j++)
         {

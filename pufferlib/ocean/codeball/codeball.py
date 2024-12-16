@@ -25,7 +25,8 @@ class CodeBall(pufferlib.PufferEnv):
 
         # Define observation and action spaces
         self.single_observation_space = gym.spaces.Box(low=-1, high=1, shape=(self.n_robots + 2, 3), dtype=np.float32)
-        self.single_action_space = gym.spaces.MultiDiscrete([8, 2])
+        self.single_action_space = gym.spaces.MultiDiscrete([8])
+        # self.single_action_space = gym.spaces.MultiDiscrete([8, 2])
 
         super().__init__(buf=buf)
 
@@ -39,9 +40,6 @@ class CodeBall(pufferlib.PufferEnv):
         return self.observations, []
 
     def step(self, actions):
-        if actions.shape != (self.num_envs * self.n_robots, 2):
-            raise ValueError(f"Actions shape incorrect. Expected {(self.num_envs, self.n_robots * 2)}, got {actions.shape}")
-
         self.actions[:] = actions
         self.c_envs.step()
 
@@ -63,13 +61,14 @@ if __name__ == '__main__':
     print("Action Space:", env.single_action_space)
     print("Initial Observations Shape:", obs.shape)
 
-    actions = np.array([[0, 0]])
+    # actions = np.array([[0, 0]])
+    actions = np.array([[0]])
     actions = np.tile(actions, (env.num_envs * env.n_robots, 1))
     # actions[:, :] = 3
     actions[:, :] = 0
     all_obs = []
     all_rewards = []
-    for _ in trange(100_000):
+    for _ in trange(1_000):
         actions[:, 0] = np.random.randint(0, 8, size=actions.shape[0])
         # actions[::2, 0] = 6 + np.random.randint(0, 3, size=actions.shape[0] // 2)
         # actions[1::2, 0] = 2 + np.random.randint(0, 3, size=actions.shape[0] // 2)

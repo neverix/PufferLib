@@ -803,17 +803,17 @@ void step(CodeBall* env) {
         sim_dtype final_potential = goal_potential(ball_final, &arena,
                                                     env->robots[i].side);
         env->rewards[i] = (initial_potential - final_potential) / arena.depth * 2.0;
-        if (env->rewards[i] == 0) {
-            sim_dtype initial_distance = vec3d_length(
-                vec3d_subtract(ball_initial, initial_positions[i]));
-            sim_dtype final_distance = vec3d_length(
-                vec3d_subtract(ball_final, env->robots[i].position));
-            env->rewards[i] = (initial_distance - final_distance) / arena.depth;
-        }
+        // if (env->rewards[i] == 0) {
+        //     sim_dtype initial_distance = vec3d_length(
+        //         vec3d_subtract(ball_initial, initial_positions[i]));
+        //     sim_dtype final_distance = vec3d_length(
+        //         vec3d_subtract(ball_final, env->robots[i].position));
+        //     env->rewards[i] += (initial_distance - final_distance) / arena.depth;
+        // }
         
         // env->rewards[i] = (((double)rand() / RAND_MAX) - 0.5) * 0.01;
     }
-            
+
     env->log.episode_length++;  // Increment episode length each step
     for (int i = 0; i < env->n_robots; i++) {
         env->log.episode_return +=
@@ -846,8 +846,7 @@ sim_dtype goal_potential(Vec3D position,
 
 void make_observation(CodeBall* env, float *buffer) {
     Entity *ent;
-    for (int target = 0; target < env->n_robots + 2; target++) {
-        // int o = target * ((env->n_robots + 2) * 6);
+    for (int target = 0; target < env->n_robots; target++) {
         int o = target * ((env->n_robots + 2) * 3);
         for (int i = 0; i < env->n_robots + 2; i++) {
             if (i < env->n_robots) {
@@ -857,12 +856,9 @@ void make_observation(CodeBall* env, float *buffer) {
             } else {
                 ent = &env->robots[target];
             }
-            buffer[o + i * 6 + 0] = ent->position.x / arena.width;
-            buffer[o + i * 6 + 1] = ent->position.y / arena.height;
-            buffer[o + i * 6 + 2] = ent->position.z / arena.depth;
-            // buffer[o + i * 6 + 3] = ent->velocity.x / MAX_ENTITY_SPEED;
-            // buffer[o + i * 6 + 4] = ent->velocity.y / MAX_ENTITY_SPEED;
-            // buffer[o + i * 6 + 5] = ent->velocity.z / MAX_ENTITY_SPEED;
+            buffer[o + i * 3 + 0] = ent->position.x / arena.width;
+            buffer[o + i * 3 + 1] = ent->position.y / arena.height;
+            buffer[o + i * 3 + 2] = ent->position.z / arena.depth;
         }
     }
 }

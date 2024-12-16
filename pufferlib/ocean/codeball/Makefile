@@ -3,7 +3,8 @@ HFILES=codeball.h renderer.h
 CFLAGS=\
 	-lm -I../../../raylib/include -I../../../pufferlib -lpthread ../../../raylib/lib/libraylib.a -lglfw -lobjc \
 	-framework Cocoa -framework OpenGL -framework IOKit -framework CoreVideo -framework GLUT -framework AppKit \
-	-O3 -march=native -funroll-loops
+	-O1 -g -fsanitize=address -fno-omit-frame-pointer
+	# -O3 -march=native -funroll-loops
 
 #	-std=c99 -Wall -pedantic -Wextra -Werror -Wstrict-prototypes -Wold-style-definition -Werror=vla -lm \
 	-I../../../raylib/include -I../../../pufferlib -lpthread
@@ -14,7 +15,7 @@ PYTHON_SO_POSTFIX=cpython-${PYTHON_VERSION}.so
 clean:
 	rm -f codeball *.so cy_codeball.c
 
-codeball: $(CFILES) $(HFILES)
+codeball: $(CFILES) $(HFILES) Makefile
 	gcc $(CFLAGS) $(CFILES) -o codeball
 
 codeball.pxd: cy_codeball.pyx codeball.h

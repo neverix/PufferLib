@@ -23,12 +23,6 @@ cpdef nitro_pack_dtype():
     cdef NitroPack np_
     return np.asarray(<NitroPack[:1]>&np_).dtype
 
-cdef ent_array(Entity e):
-    return np.array([
-        e.position.x, e.position.y, e.position.z,
-        e.velocity.x, e.velocity.y, e.velocity.z,],
-        dtype=np.float64)
-
 robot_max_jump_speed = ROBOT_MAX_JUMP_SPEED
 robot_max_ground_speed = ROBOT_MAX_GROUND_SPEED
 cdef float arena_size = max(arena.width, arena.depth) / 2
@@ -115,7 +109,8 @@ cdef class CyCodeBall:
                 vel_action = self.action_buffer[i * self.n_robots + j, 0]
                 if vel_action == 4:
                     vel_action = 8
-                jump_action = self.action_buffer[i * self.n_robots + j, 1] > 0
+                # jump_action = self.action_buffer[i * self.n_robots + j, 1] > 0
+                jump_action = 0
                 vel_x = vel_action % 3 - 1
                 vel_z = vel_action // 3 - 1
                 self.envs[i].actions[j * 4] = vel_x * ROBOT_MAX_GROUND_SPEED
@@ -126,7 +121,7 @@ cdef class CyCodeBall:
         for i in range(self.num_envs):
             step(&self.envs[i])
         
-        # self._observe()
+        self._observe()
 
     def close(self):
         cdef int i
