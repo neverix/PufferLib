@@ -35,7 +35,8 @@
 #define NITRO_PACK_AMOUNT 4  // Corrected: There are 4 nitro packs
 #define NITRO_PACK_RESPAWN_TICKS (10 * TICKS_PER_SECOND)
 #define GRAVITY 30.0
-#define SCORE_REWARD 1.0
+// #define SCORE_REWARD 0.03
+#define SCORE_REWARD 0.0
 
 typedef double sim_dtype;
 
@@ -615,7 +616,6 @@ void reset_positions(CodeBall* env) {
     env->ball = ball;
 
     memset(env->actions, 0, env->n_robots * 4 * sizeof(double));
-    memset(env->rewards, 0, env->n_robots * sizeof(double));
     env->tick = 0;
 
     if (env->frame_skip == 0) {
@@ -803,13 +803,13 @@ void step(CodeBall* env) {
         sim_dtype final_potential = goal_potential(ball_final, &arena,
                                                     env->robots[i].side);
         env->rewards[i] = (initial_potential - final_potential) / arena.depth * 2.0;
-        // if (env->rewards[i] == 0) {
-        //     sim_dtype initial_distance = vec3d_length(
-        //         vec3d_subtract(ball_initial, initial_positions[i]));
-        //     sim_dtype final_distance = vec3d_length(
-        //         vec3d_subtract(ball_final, env->robots[i].position));
-        //     env->rewards[i] += (initial_distance - final_distance) / arena.depth;
-        // }
+        if (env->rewards[i] == 0) {
+            sim_dtype initial_distance = vec3d_length(
+                vec3d_subtract(ball_initial, initial_positions[i]));
+            sim_dtype final_distance = vec3d_length(
+                vec3d_subtract(ball_final, env->robots[i].position));
+            env->rewards[i] += (initial_distance - final_distance) / arena.depth;
+        }
         
         // env->rewards[i] = (((double)rand() / RAND_MAX) - 0.5) * 0.01;
     }
@@ -847,7 +847,7 @@ sim_dtype goal_potential(Vec3D position,
 void make_observation(CodeBall* env, float *buffer) {
     Entity *ent;
     for (int target = 0; target < env->n_robots; target++) {
-        int o = target * ((env->n_robots + 2) * 3);
+        int o = target * (env->n_robots + 2) * 6;
         for (int i = 0; i < env->n_robots + 2; i++) {
             if (i < env->n_robots) {
                 ent = &env->robots[i];
@@ -856,9 +856,15 @@ void make_observation(CodeBall* env, float *buffer) {
             } else {
                 ent = &env->robots[target];
             }
-            buffer[o + i * 3 + 0] = ent->position.x / arena.width;
-            buffer[o + i * 3 + 1] = ent->position.y / arena.height;
-            buffer[o + i * 3 + 2] = ent->position.z / arena.depth;
+            buffer[o + i * 6 + 0] = ent->position.x / arena.width * 5.0;
+            buffer[o + i * 6 + 1] = ent->position.y / arena.height * 5.0;
+            buffer[o + i * 6 + 2] = ent->position.z / arena.depth * 5.0;
+            buffer[o + i * 6 + 3] =
+                ent->velocity.x / ROBOT_MAX_GROUND_SPEED * 3.0;
+            buffer[o + i * 6 + 4] =
+                ent->velocity.y / ROBOT_MAX_GROUND_SPEED * 3.0;
+            buffer[o + i * 6 + 5] =
+                ent->velocity.z / ROBOT_MAX_GROUND_SPEED * 3.0;
         }
     }
 }

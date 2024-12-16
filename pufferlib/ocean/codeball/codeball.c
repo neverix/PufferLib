@@ -13,16 +13,17 @@ int main() {
     srand(time(NULL)); // Seed the random number generator
     Client* client = make_client();
 
-    Weights* weights =
-        load_weights("../../resources/codeball_weights.bin", 136715);
     int n_robots = 6;
-    int obs_size = (n_robots + 2) * 3;
+    int obs_size = (n_robots + 2) * 6;
     int action_size = 8;
+    Weights* weights =
+        load_weights("../../resources/codeball_weights.bin", 139787);
     LinearLSTM* net = make_linearlstm(weights, n_robots, obs_size, action_size);
 
     CodeBall env;
     env.n_robots = n_robots;
-    env.n_nitros = 4;
+    env.n_nitros = 0;
+    env.frame_skip = 5;
     allocate(&env);
     reset(&env);
 
@@ -51,24 +52,24 @@ int main() {
             env.actions[j * 4 + 3] = 0;
         }
 
-        for (int j = 0; j < env.n_robots; j++)
-        {
-            Vec3D tgt =
-                vec3d_subtract(env.ball.position, env.robots[j].position);
-            for (int k = 0; k < env.n_robots; k++) {
-                if (k != j) {
-                    Vec3D diff = vec3d_subtract(env.robots[k].position, env.robots[j].position);
-                    double diff_len = vec3d_length(diff);
-                    if (diff_len < 2.5) {
-                        tgt = vec3d_multiply(diff, -1.0);
-                    }
-                }
-            }
-            tgt = vec3d_multiply(tgt, ROBOT_MAX_GROUND_SPEED);
-            env.actions[j * 4] = tgt.x;
-            env.actions[j * 4 + 1] = tgt.y;
-            env.actions[j * 4 + 2] = tgt.z;
-        }
+        // for (int j = 0; j < env.n_robots; j++)
+        // {
+        //     Vec3D tgt =
+        //         vec3d_subtract(env.ball.position, env.robots[j].position);
+        //     for (int k = 0; k < env.n_robots; k++) {
+        //         if (k != j) {
+        //             Vec3D diff = vec3d_subtract(env.robots[k].position, env.robots[j].position);
+        //             double diff_len = vec3d_length(diff);
+        //             if (diff_len < 2.5) {
+        //                 tgt = vec3d_multiply(diff, -1.0);
+        //             }
+        //         }
+        //     }
+        //     tgt = vec3d_multiply(tgt, ROBOT_MAX_GROUND_SPEED);
+        //     env.actions[j * 4] = tgt.x;
+        //     env.actions[j * 4 + 1] = tgt.y;
+        //     env.actions[j * 4 + 2] = tgt.z;
+        // }
         step(&env);
         if (i == initial_steps) {
             gettimeofday(&end, NULL);

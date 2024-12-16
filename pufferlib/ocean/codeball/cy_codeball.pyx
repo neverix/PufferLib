@@ -74,11 +74,14 @@ cdef class CyCodeBall:
 
     def _observe(self):
         cdef int i, j
+        cdef float rew
         for i in range(self.num_envs):
-            make_observation(&self.envs[0], &self.observation_buffer[i, 0, 0])
+            make_observation(&self.envs[0], &self.observation_buffer[i * self.n_robots, 0, 0])
         for i in range(self.num_envs):
             for j in range(self.n_robots):
-                self.reward_buffer[i * self.n_robots + j] = self.envs[i].rewards[j] * self.reward_mul
+                rew = self.envs[i].rewards[j] * self.reward_mul
+                # rew = (self.observation_buffer[i * self.n_robots + j, self.n_robots + 1, 4] > 0)
+                self.reward_buffer[i * self.n_robots + j] = rew
                 self.terminal_buffer[i * self.n_robots + j] = self.envs[i].terminal
 
     def log_nth(self, int i):
@@ -103,6 +106,8 @@ cdef class CyCodeBall:
             if self.envs[i].tick >= self.max_steps:
                 self.truncate_buffer[i] = True
                 reset(&self.envs[i])
+            else:
+                self.truncate_buffer[i] = False
 
         for i in range(self.num_envs):
             for j in range(self.n_robots):

@@ -110,7 +110,7 @@ def test_model_forward(model):
 	
 if __name__ == '__main__':
     #test_lstm()
-    model = torch.load("experiments/puffer_codeball-df173956/model_003000.pt", map_location='cpu')
+    model = torch.load("experiments/puffer_codeball-f3cf43ad/model_000450.pt", map_location='cpu')
     # model = torch.load('snake.pt', map_location='cpu')
     #test_model_forward(model)
     #test_model(model)
