@@ -51,14 +51,13 @@ class CodeBall(pufferlib.PufferEnv):
             self.terminals,
             self.truncations,
             [self.c_envs.log()],
-            # [self.c_envs.log_nth(i) for i in range(self.num_envs)],
         )
 
     def close(self):
         self.c_envs.close()
 
 if __name__ == '__main__':
-    env = CodeBall(num_envs=32)
+    env = CodeBall(num_envs=128)
     obs, _ = env.reset(seed=42)
     print("Observation Space:", env.single_observation_space)
     print("Action Space:", env.single_action_space)
@@ -70,7 +69,7 @@ if __name__ == '__main__':
     actions[:, :] = 0
     all_obs = []
     all_rewards = []
-    for _ in trange(10000):
+    for _ in trange(100_000):
         actions[:, 0] = np.random.randint(0, 8, size=actions.shape[0])
         # actions[::2, 0] = 6 + np.random.randint(0, 3, size=actions.shape[0] // 2)
         # actions[1::2, 0] = 2 + np.random.randint(0, 3, size=actions.shape[0] // 2)

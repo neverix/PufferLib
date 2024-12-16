@@ -45,7 +45,7 @@ typedef struct Log Log;
 struct Log {
     double episode_return;
     int episode_length;
-    double winner;  // 0 for tie, 1 for 1, -1 for 0
+    double winner;  // was there a winner?
 };
 
 typedef struct LogBuffer LogBuffer;
@@ -628,7 +628,7 @@ void goal_scored(CodeBall *env, bool side) {
         env->rewards[i] += env->robots[i].side == side ? SCORE_REWARD : -SCORE_REWARD;
     }
     env->terminal = true;
-    env->log.winner = side ? 1 : -1;
+    env->log.winner = 1;
 
     add_log(env->log_buffer, &env->log);
     env->log = (Log){0};
@@ -803,21 +803,21 @@ void step(CodeBall* env) {
         sim_dtype final_potential = goal_potential(ball_final, &arena,
                                                     env->robots[i].side);
         env->rewards[i] = (initial_potential - final_potential) / arena.depth * 2.0;
-        // if (env->rewards[i] == 0) {
-        //     sim_dtype initial_distance = vec3d_length(
-        //         vec3d_subtract(ball_initial, initial_positions[i]));
-        //     sim_dtype final_distance = vec3d_length(
-        //         vec3d_subtract(ball_final, env->robots[i].position));
-        //     env->rewards[i] = (initial_distance - final_distance) / arena.depth;
-        // }
+        if (env->rewards[i] == 0) {
+            sim_dtype initial_distance = vec3d_length(
+                vec3d_subtract(ball_initial, initial_positions[i]));
+            sim_dtype final_distance = vec3d_length(
+                vec3d_subtract(ball_final, env->robots[i].position));
+            env->rewards[i] = (initial_distance - final_distance) / arena.depth;
+        }
         
         // env->rewards[i] = (((double)rand() / RAND_MAX) - 0.5) * 0.01;
     }
-
+            
     env->log.episode_length++;  // Increment episode length each step
     for (int i = 0; i < env->n_robots; i++) {
         env->log.episode_return +=
-            env->rewards[i];  // Accumulate the return for the episode
+            env->rewards[i] * ((i % 2) * 2 - 1);  // Accumulate the return for the episode
     }
 
     if (fabs(ball_final.z) > arena.depth / 2.0 + env->ball.radius) {

@@ -126,7 +126,7 @@ cdef class CyCodeBall:
         for i in range(self.num_envs):
             step(&self.envs[i])
         
-        self._observe()
+        # self._observe()
 
     def close(self):
         cdef int i
