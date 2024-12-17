@@ -6,6 +6,8 @@ cdef extern from "stdbool.h":
     ctypedef bint bool
 
 include "codeball.pxd"
+include "renderer.pxd"
+
 
 cdef extern from "codeball.h":
     cdef double ROBOT_MAX_JUMP_SPEED
@@ -39,6 +41,7 @@ cdef class CyCodeBall:
     cdef bool[:] terminal_buffer
     cdef bool[:] truncate_buffer
     cdef LogBuffer* log_aggregator
+    cdef Client* client
 
     def __init__(self,
         int num_envs, int n_robots, int n_nitros, int frame_skip, double reward_mul, int max_steps,
@@ -97,6 +100,11 @@ cdef class CyCodeBall:
         log = aggregate(self.log_aggregator)
         return log
 
+    def render(self):
+        pass
+        if self.client == NULL:
+            self.client = make_client()
+        render(self.client, &self.envs[0])
 
     def step(self,):
         cdef int i, j, vel_action, jump_action
@@ -130,6 +138,9 @@ cdef class CyCodeBall:
 
     def close(self):
         cdef int i
+        #if self.client != NULL:
+        #    close_client(self.client)
+        #    self.client = NULL
         for i in range(self.num_envs):
             free_allocated(&self.envs[i])
         free(self.envs)

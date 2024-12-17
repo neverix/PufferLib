@@ -825,13 +825,13 @@ void step(CodeBall* env) {
     for (int i = 0; i < env->n_robots; i++) {
         env->rewards[i] = 0.5 - vec3d_length(vec3d_subtract(env->robots[i].position, env->ball.position)) / arena.depth;
         env->rewards[i] = ((i % 2) * 2 - 1) * (env->robots[i].position.z / arena.depth);
-        env->rewards[i] = fabsf(env->robots[i].position.z / arena.depth) + fabsf(env->robots[i].position.x / arena.width);
-        env->rewards[i] = - vec3d_length(vec3d_subtract(env->robots[i].position,
-                                              env->ball.position)) / arena.depth;
+        // env->rewards[i] = fabsf(env->robots[i].position.z / arena.depth) + fabsf(env->robots[i].position.x / arena.width);
+        // env->rewards[i] = - vec3d_length(vec3d_subtract(env->robots[i].position,
+                                            //   env->ball.position)) / arena.depth;
         // env->rewards[i] = -(fabsf((env->robots[i].position.z - env->ball.position.z) / arena.depth)
         // + fabsf(env->robots[i].position.x / arena.width));
-        env->rewards[i] = 1.0 -(fabsf(env->robots[i].position.z / arena.depth) +
-                          fabsf(env->robots[i].position.x / arena.width));
+        // env->rewards[i] = 1.0 -(fabsf(env->robots[i].position.z / arena.depth) +
+        //                   fabsf(env->robots[i].position.x / arena.width));
     }
 
     env->log.episode_length++;  // Increment episode length each step

@@ -10,6 +10,31 @@ from pufferlib.models import Convolutional as Conv
 Recurrent = pufferlib.models.LSTMWrapper
 import numpy as np
 
+class MLPPolicy(Policy):
+    def __init__(self, env, hidden_size=128, num_layers=2):
+        super().__init__(env, hidden_size=hidden_size)
+        self.encoder = nn.Sequential(
+            self.encoder,
+            *[
+                nn.Sequential(nn.ReLU(), pufferlib.pytorch.layer_init(nn.Linear(hidden_size, hidden_size)))
+                for _ in range(num_layers)
+            ],
+        )
+        self.decoder = nn.Sequential(
+            *[
+                nn.Sequential(nn.ReLU(), pufferlib.pytorch.layer_init(nn.Linear(hidden_size, hidden_size)))
+                for _ in range(num_layers)
+            ],
+            self.decoder
+        )
+        self.value_head = nn.Sequential(
+            *[
+                nn.Sequential(nn.ReLU(), pufferlib.pytorch.layer_init(nn.Linear(hidden_size, hidden_size)))
+                for _ in range(num_layers)
+            ],
+            self.value_head
+        )
+
 class NMMO3LSTM(pufferlib.models.LSTMWrapper):
     def __init__(self, env, policy, input_size=256, hidden_size=256, num_layers=1):
         super().__init__(env, policy, input_size, hidden_size, num_layers)
