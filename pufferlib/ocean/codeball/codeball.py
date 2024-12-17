@@ -15,7 +15,8 @@ import pufferlib
 
 class CodeBall(pufferlib.PufferEnv):
     def __init__(self, num_envs=2, n_robots=6, n_nitros=0, max_steps=2000,
-                 reward_mul=200.0,
+                #  reward_mul=20.0,
+                 reward_mul=1.0,
                  frame_skip=5, buf=None):
         self.num_envs = num_envs
         self.num_agents = n_robots * num_envs
@@ -26,11 +27,11 @@ class CodeBall(pufferlib.PufferEnv):
         # Define observation and action spaces
         self.single_observation_space = gym.spaces.Box(
             low=-1, high=1,
-            # shape=((self.n_robots + 2) * 6,)
-            shape=((self.n_robots + 2), 6,)
+            shape=((self.n_robots + 2), 9,)
             , dtype=np.float32)
         # self.single_action_space = gym.spaces.MultiDiscrete([8])
-        self.single_action_space = gym.spaces.MultiDiscrete([8, 2])
+        self.single_action_space = gym.spaces.Discrete(8)
+        # self.single_action_space = gym.spaces.MultiDiscrete([8, 2])
 
         super().__init__(buf=buf)
 
@@ -68,16 +69,20 @@ if __name__ == '__main__':
     print("Initial Observations Shape:", obs.shape)
 
     # actions = np.array([[0, 0]])
-    actions = np.array([[0]])
-    actions = np.tile(actions, (env.num_envs * env.n_robots, 1))
+    # actions = np.array([[0]])
+    actions = np.array([0])
+    # actions = np.tile(actions, (env.num_envs * env.n_robots, 1))
+    actions = np.tile(actions, (env.num_envs * env.n_robots,))
     # actions[:, :] = 3
-    actions[:, :] = 0
+    # actions[:, :] = 0
+    actions[:] = 0
     all_obs = []
     all_rewards = []
     terminals = []
     truncations = []
     for _ in trange(10_000):
-        actions[:, 0] = np.random.randint(0, 8, size=actions.shape[0])
+        # actions[:, 0] = np.random.randint(0, 8, size=actions.shape[0])
+        actions[:] = np.random.randint(0, 8, size=actions.shape[0])
         # actions[::2, 0] = 6 + np.random.randint(0, 3, size=actions.shape[0] // 2)
         # actions[1::2, 0] = 2 + np.random.randint(0, 3, size=actions.shape[0] // 2)
         obs, rewards, terminated, truncated, info = env.step(actions)

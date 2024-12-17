@@ -36,7 +36,7 @@
 #define NITRO_PACK_RESPAWN_TICKS (10 * TICKS_PER_SECOND)
 #define GRAVITY 30.0
 // #define SCORE_REWARD 0.03
-#define SCORE_REWARD 0.0
+#define SCORE_REWARD 1.0
 
 typedef double sim_dtype;
 
@@ -44,7 +44,8 @@ typedef double sim_dtype;
 
 typedef struct Log Log;
 struct Log {
-    double episode_return;
+    double episode_return_side;
+    double episode_return_total;
     int episode_length;
     double winner;  // was there a winner?
 };
@@ -83,11 +84,13 @@ Log aggregate(LogBuffer* logs) {
         return log;
     }
     for (int i = 0; i < logs->idx; i++) {
-        log.episode_return += logs->logs[i].episode_return;
+        log.episode_return_side += logs->logs[i].episode_return_side;
+        log.episode_return_total += logs->logs[i].episode_return_total;
         log.episode_length += logs->logs[i].episode_length;
         log.winner += logs->logs[i].winner;
     }
-    log.episode_return /= logs->idx;
+    log.episode_return_side /= logs->idx;
+    log.episode_return_total /= logs->idx;
     log.episode_length /= logs->idx;
     log.winner /= logs->idx;
     return log;
@@ -797,31 +800,45 @@ void step(CodeBall* env) {
 
     Vec3D ball_final = env->ball.position;
 
+    // sim_dtype delta = delta_time * env->frame_skip;
+    // for (int i = 0; i < env->n_robots; i++) {
+    //     sim_dtype initial_potential = goal_potential(ball_initial, &arena,
+    //                                                  env->robots[i].side);
+    //     sim_dtype final_potential = goal_potential(ball_final, &arena,
+    //                                                 env->robots[i].side);
+    //     // env->rewards[i] = (initial_potential - final_potential) / arena.depth * 2.0;
+    //     env->rewards[i] = 1.0 - final_potential / arena.depth * 2.0;
+    //     if (initial_potential == final_potential) {
+    //         sim_dtype initial_distance = vec3d_length(
+    //             vec3d_subtract(ball_initial, initial_positions[i]));
+    //         sim_dtype final_distance = vec3d_length(
+    //             vec3d_subtract(ball_final, env->robots[i].position));
+    //         env->rewards[i] += (initial_distance - final_distance) / arena.depth / delta;
+    //         // env->rewards[i] += -final_distance / arena.depth;
+    //     }
+    // }
+
+    if (fabs(ball_final.z) > arena.depth / 2.0 + env->ball.radius) {
+        goal_scored(env, ball_final.z > 0);
+    }
+
     for (int i = 0; i < env->n_robots; i++) {
-        sim_dtype initial_potential = goal_potential(ball_initial, &arena,
-                                                     env->robots[i].side);
-        sim_dtype final_potential = goal_potential(ball_final, &arena,
-                                                    env->robots[i].side);
-        env->rewards[i] = (initial_potential - final_potential) / arena.depth * 2.0;
-        if (env->rewards[i] == 0) {
-            sim_dtype initial_distance = vec3d_length(
-                vec3d_subtract(ball_initial, initial_positions[i]));
-            sim_dtype final_distance = vec3d_length(
-                vec3d_subtract(ball_final, env->robots[i].position));
-            env->rewards[i] += (initial_distance - final_distance) / arena.depth;
-        }
-        
-        // env->rewards[i] = (((double)rand() / RAND_MAX) - 0.5) * 0.01;
+        env->rewards[i] = 0.5 - vec3d_length(vec3d_subtract(env->robots[i].position, env->ball.position)) / arena.depth;
+        env->rewards[i] = ((i % 2) * 2 - 1) * (env->robots[i].position.z / arena.depth);
+        env->rewards[i] = fabsf(env->robots[i].position.z / arena.depth) + fabsf(env->robots[i].position.x / arena.width);
+        env->rewards[i] = - vec3d_length(vec3d_subtract(env->robots[i].position,
+                                              env->ball.position)) / arena.depth;
+        // env->rewards[i] = -(fabsf((env->robots[i].position.z - env->ball.position.z) / arena.depth)
+        // + fabsf(env->robots[i].position.x / arena.width));
+        env->rewards[i] = 1.0 -(fabsf(env->robots[i].position.z / arena.depth) +
+                          fabsf(env->robots[i].position.x / arena.width));
     }
 
     env->log.episode_length++;  // Increment episode length each step
     for (int i = 0; i < env->n_robots; i++) {
-        env->log.episode_return +=
-            env->rewards[i] * ((i % 2) * 2 - 1);  // Accumulate the return for the episode
-    }
-
-    if (fabs(ball_final.z) > arena.depth / 2.0 + env->ball.radius) {
-        goal_scored(env, ball_final.z > 0);
+        env->log.episode_return_side +=
+            env->rewards[i] * ((i % 2) * 2 - 1);
+        env->log.episode_return_total += env->rewards[i];
     }
 
     env->tick++;
@@ -847,7 +864,8 @@ sim_dtype goal_potential(Vec3D position,
 void make_observation(CodeBall* env, float *buffer) {
     Entity *ent;
     for (int target = 0; target < env->n_robots; target++) {
-        int o = target * (env->n_robots + 2) * 6;
+        int o = target * (env->n_robots + 2) * 9;
+        Vec3D target_pos = env->robots[target].position;
         for (int i = 0; i < env->n_robots + 2; i++) {
             if (i < env->n_robots) {
                 ent = &env->robots[i];
@@ -856,14 +874,17 @@ void make_observation(CodeBall* env, float *buffer) {
             } else {
                 ent = &env->robots[target];
             }
-            buffer[o + i * 6 + 0] = ent->position.x / arena.width * 5.0;
-            buffer[o + i * 6 + 1] = ent->position.y / arena.height * 5.0;
-            buffer[o + i * 6 + 2] = ent->position.z / arena.depth * 5.0;
-            buffer[o + i * 6 + 3] =
+            buffer[o + i * 9 + 0] = ent->position.x / arena.width * 5.0;
+            buffer[o + i * 9 + 1] = ent->position.y / arena.height * 5.0;
+            buffer[o + i * 9 + 2] = ent->position.z / arena.depth * 5.0;
+            buffer[o + i * 9 + 3] = (ent->position.x - target_pos.x) / arena.width * 5.0;
+            buffer[o + i * 9 + 4] = (ent->position.y - target_pos.y) / arena.height * 5.0;
+            buffer[o + i * 9 + 5] = (ent->position.z - target_pos.z) / arena.depth * 5.0;
+            buffer[o + i * 9 + 6] =
                 ent->velocity.x / ROBOT_MAX_GROUND_SPEED * 3.0;
-            buffer[o + i * 6 + 4] =
+            buffer[o + i * 9 + 7] =
                 ent->velocity.y / ROBOT_MAX_GROUND_SPEED * 3.0;
-            buffer[o + i * 6 + 5] =
+            buffer[o + i * 9 + 8] =
                 ent->velocity.z / ROBOT_MAX_GROUND_SPEED * 3.0;
         }
     }

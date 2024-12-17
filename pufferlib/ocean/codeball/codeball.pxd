@@ -3,7 +3,8 @@ cdef extern from "codeball.h":
     ctypedef double sim_dtype
 
     cdef struct Log:
-        double episode_return
+        double episode_return_side
+        double episode_return_total
         int episode_length
         double winner
 

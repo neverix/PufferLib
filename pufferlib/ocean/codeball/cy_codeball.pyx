@@ -33,7 +33,7 @@ cdef class CyCodeBall:
     cdef int n_robots
     cdef int max_steps
     cdef double reward_mul
-    cdef int[:, :] action_buffer
+    cdef int[:] action_buffer
     cdef float[:] reward_buffer
     cdef float[:, :, :] observation_buffer
     cdef bool[:] terminal_buffer
@@ -43,7 +43,7 @@ cdef class CyCodeBall:
     def __init__(self,
         int num_envs, int n_robots, int n_nitros, int frame_skip, double reward_mul, int max_steps,
         float [:, :, :] observations,
-        int [:, :] actions, float [:] rewards, bool [:] terminals, bool [:] truncations
+        int [:] actions, float [:] rewards, bool [:] terminals, bool [:] truncations
     ):
         self.num_envs = num_envs
         self.n_robots = n_robots
@@ -80,7 +80,6 @@ cdef class CyCodeBall:
         for i in range(self.num_envs):
             for j in range(self.n_robots):
                 rew = self.envs[i].rewards[j] * self.reward_mul
-                # rew = (self.observation_buffer[i * self.n_robots + j, self.n_robots + 1, 4] > 0)
                 self.reward_buffer[i * self.n_robots + j] = rew
                 self.terminal_buffer[i * self.n_robots + j] = self.envs[i].terminal
 
@@ -111,7 +110,8 @@ cdef class CyCodeBall:
 
         for i in range(self.num_envs):
             for j in range(self.n_robots):
-                vel_action = self.action_buffer[i * self.n_robots + j, 0]
+                # vel_action = self.action_buffer[i * self.n_robots + j, 0]
+                vel_action = self.action_buffer[i * self.n_robots + j]
                 if vel_action == 4:
                     vel_action = 8
                 # jump_action = self.action_buffer[i * self.n_robots + j, 1] > 0
