@@ -72,7 +72,7 @@ void free_logbuffer(LogBuffer* buffer) {
 
 void add_log(LogBuffer* logs, Log* log) {
     if (logs->idx == logs->length) {
-        logs->idx = 1;
+        logs->idx = 0;
     }
     logs->logs[logs->idx] = *log;
     logs->idx += 1;
@@ -800,7 +800,7 @@ void step(CodeBall* env) {
 
     Vec3D ball_final = env->ball.position;
 
-    // sim_dtype delta = delta_time * env->frame_skip;
+    sim_dtype delta = delta_time * env->frame_skip;
     // for (int i = 0; i < env->n_robots; i++) {
     //     sim_dtype initial_potential = goal_potential(ball_initial, &arena,
     //                                                  env->robots[i].side);
@@ -823,8 +823,15 @@ void step(CodeBall* env) {
     }
 
     for (int i = 0; i < env->n_robots; i++) {
-        env->rewards[i] = 0.5 - vec3d_length(vec3d_subtract(env->robots[i].position, env->ball.position)) / arena.depth;
-        env->rewards[i] = ((i % 2) * 2 - 1) * (env->robots[i].position.z / arena.depth);
+        // env->rewards[i] = 0.5 - vec3d_length(vec3d_subtract(env->robots[i].position, env->ball.position)) / arena.depth;
+        // env->rewards[i] = -fabs(env->robots[i].position.z / arena.depth);
+        
+        // env->rewards[i] = 0.2 - fabs(env->robots[i].position.z / arena.depth);
+        float initial_rew = 0.2 - fabs(initial_positions[i].z / arena.depth);
+        float final_rew = 0.2 - fabs(env->robots[i].position.z / arena.depth);
+        env->rewards[i] = (final_rew - initial_rew) / delta;
+
+        // env->rewards[i] = ((i % 2) * 2 - 1) * (env->robots[i].position.z / arena.depth);
         // env->rewards[i] = fabsf(env->robots[i].position.z / arena.depth) + fabsf(env->robots[i].position.x / arena.width);
         // env->rewards[i] = - vec3d_length(vec3d_subtract(env->robots[i].position,
                                             //   env->ball.position)) / arena.depth;

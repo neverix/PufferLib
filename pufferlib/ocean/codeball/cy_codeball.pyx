@@ -101,7 +101,6 @@ cdef class CyCodeBall:
         return log
 
     def render(self):
-        pass
         if self.client == NULL:
             self.client = make_client()
         render(self.client, &self.envs[0])
@@ -138,9 +137,9 @@ cdef class CyCodeBall:
 
     def close(self):
         cdef int i
-        #if self.client != NULL:
-        #    close_client(self.client)
-        #    self.client = NULL
+        if self.client != NULL:
+            close_client(self.client)
+            self.client = NULL
         for i in range(self.num_envs):
             free_allocated(&self.envs[i])
         free(self.envs)

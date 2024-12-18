@@ -5,6 +5,9 @@
 #include "rlgl.h"
 #include <sys/time.h>
 
+#include "base_vs.h"
+#include "fragment_fs.h"
+
 typedef struct Client Client;
 struct Client {
     float width;
@@ -33,7 +36,16 @@ Client* make_client() {
 
     InitWindow(client->width, client->height, "CodeBall");
 
-    client->shader = LoadShader("base.vs", "fragment.fs");
+    // client->shader = LoadShader("base.vs", "fragment.fs");
+    char *vs_code = malloc(base_vs_len + 1);
+    memcpy(vs_code, base_vs, base_vs_len);
+    vs_code[base_vs_len] = '\0';
+    char *fs_code = malloc(fragment_fs_len + 1);
+    memcpy(fs_code, fragment_fs, fragment_fs_len);
+    fs_code[fragment_fs_len] = '\0';
+    client->shader = LoadShaderFromMemory(vs_code, fs_code);
+    free(vs_code);
+    free(fs_code);
 
     Mesh sphere = GenMeshSphere(1.0f, 32, 32);
     for (int v = 0; v < sphere.vertexCount; v++) {
