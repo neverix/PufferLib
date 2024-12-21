@@ -24,6 +24,8 @@ int main() {
     Weights* weights =
         load_weights("../../resources/codeball_weights.bin", 142601);
     LinearLSTM* net = make_linearlstm(weights, n_robots, obs_size, action_size);
+    float observation_buffer[n_robots * obs_size];
+    int action_buffer[n_robots * action_size];
     #endif
 
     CodeBall env;
@@ -38,8 +40,6 @@ int main() {
 
     int initial_steps = 2;
 
-    float observation_buffer[n_robots * obs_size];
-    int action_buffer[n_robots * action_size];
     for (int i = 0; i < 10000; i++) {
         if (WindowShouldClose()) break;
 
