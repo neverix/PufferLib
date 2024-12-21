@@ -9,7 +9,7 @@
 #define GLSL_VERSION 100
 #endif
 
-#define NETWORK_CONTROLLED 1
+#define NETWORK_CONTROLLED 0
 
 #define SLOWDOWN 1
 

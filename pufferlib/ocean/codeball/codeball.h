@@ -801,44 +801,54 @@ void step(CodeBall* env) {
     Vec3D ball_final = env->ball.position;
 
     sim_dtype delta = delta_time * env->frame_skip;
-    // for (int i = 0; i < env->n_robots; i++) {
-    //     sim_dtype initial_potential = goal_potential(ball_initial, &arena,
-    //                                                  env->robots[i].side);
-    //     sim_dtype final_potential = goal_potential(ball_final, &arena,
-    //                                                 env->robots[i].side);
-    //     // env->rewards[i] = (initial_potential - final_potential) / arena.depth * 2.0;
-    //     env->rewards[i] = 1.0 - final_potential / arena.depth * 2.0;
-    //     if (initial_potential == final_potential) {
-    //         sim_dtype initial_distance = vec3d_length(
-    //             vec3d_subtract(ball_initial, initial_positions[i]));
-    //         sim_dtype final_distance = vec3d_length(
-    //             vec3d_subtract(ball_final, env->robots[i].position));
-    //         env->rewards[i] += (initial_distance - final_distance) / arena.depth / delta;
-    //         // env->rewards[i] += -final_distance / arena.depth;
-    //     }
-    // }
+    for (int i = 0; i < env->n_robots; i++) {
+        sim_dtype initial_potential = goal_potential(ball_initial, &arena,
+                                                     env->robots[i].side);
+        sim_dtype final_potential = goal_potential(ball_final, &arena,
+                                                    env->robots[i].side);
+        // env->rewards[i] = (initial_potential - final_potential) / arena.depth * 2.0;
+        // env->rewards[i] = 1.0 - final_potential / arena.depth * 2.0;
+        if (initial_potential == final_potential) {
+            sim_dtype initial_distance = vec3d_length(
+                vec3d_subtract(ball_initial, initial_positions[i]));
+            sim_dtype final_distance = vec3d_length(
+                vec3d_subtract(ball_final, env->robots[i].position));
+            env->rewards[i] += (initial_distance - final_distance) / arena.depth / delta;
+        }
+    }
 
     if (fabs(ball_final.z) > arena.depth / 2.0 + env->ball.radius) {
         goal_scored(env, ball_final.z > 0);
     }
 
     for (int i = 0; i < env->n_robots; i++) {
-        // env->rewards[i] = 0.5 - vec3d_length(vec3d_subtract(env->robots[i].position, env->ball.position)) / arena.depth;
-        // env->rewards[i] = -fabs(env->robots[i].position.z / arena.depth);
+    //     // env->rewards[i] = 0.5 - vec3d_length(vec3d_subtract(env->robots[i].position, env->ball.position)) / arena.depth;
+    //     // env->rewards[i] = -fabs(env->robots[i].position.z / arena.depth);
         
-        // env->rewards[i] = 0.2 - fabs(env->robots[i].position.z / arena.depth);
-        float initial_rew = 0.2 - fabs(initial_positions[i].z / arena.depth);
-        float final_rew = 0.2 - fabs(env->robots[i].position.z / arena.depth);
-        env->rewards[i] = (final_rew - initial_rew) / delta;
+    //     // env->rewards[i] = 0.2 - fabs(env->robots[i].position.z / arena.depth);
+    //     float initial_rew = 0.2 - fabs(initial_positions[i].z / arena.depth);
+    //     float final_rew = 0.2 - fabs(env->robots[i].position.z / arena.depth);
+    //     env->rewards[i] = (final_rew - initial_rew) / delta;
 
-        // env->rewards[i] = ((i % 2) * 2 - 1) * (env->robots[i].position.z / arena.depth);
-        // env->rewards[i] = fabsf(env->robots[i].position.z / arena.depth) + fabsf(env->robots[i].position.x / arena.width);
-        // env->rewards[i] = - vec3d_length(vec3d_subtract(env->robots[i].position,
-                                            //   env->ball.position)) / arena.depth;
-        // env->rewards[i] = -(fabsf((env->robots[i].position.z - env->ball.position.z) / arena.depth)
-        // + fabsf(env->robots[i].position.x / arena.width));
-        // env->rewards[i] = 1.0 -(fabsf(env->robots[i].position.z / arena.depth) +
-        //                   fabsf(env->robots[i].position.x / arena.width));
+    //     // env->rewards[i] = ((i % 2) * 2 - 1) * (env->robots[i].position.z / arena.depth);
+    //     // env->rewards[i] = fabsf(env->robots[i].position.z / arena.depth) + fabsf(env->robots[i].position.x / arena.width);
+    //     // env->rewards[i] = - vec3d_length(vec3d_subtract(env->robots[i].position,
+    //                                         //   env->ball.position)) / arena.depth;
+    //     // env->rewards[i] = -(fabsf((env->robots[i].position.z - env->ball.position.z) / arena.depth)
+    //     // + fabsf(env->robots[i].position.x / arena.width));
+    //     // env->rewards[i] = 1.0 -(fabsf(env->robots[i].position.z / arena.depth) +
+    //     //                   fabsf(env->robots[i].position.x / arena.width));
+    Vec3D zero = {0, 0, 0};
+    sim_dtype initial_distance =
+        // vec3d_length(vec3d_subtract(ball_initial, initial_positions[i]));
+        vec3d_length(vec3d_subtract(zero, initial_positions[i]));
+    sim_dtype final_distance =
+        // vec3d_length(vec3d_subtract(ball_final, env->robots[i].position));
+        vec3d_length(vec3d_subtract(zero, env->robots[i].position));
+    env->rewards[i] = final_distance < ROBOT_MIN_RADIUS * 3.5 ? 1.0 : 0.0;
+    // env->rewards[i] =
+        // initial_distance > final_distance ? 1.0 : -1.0;
+        // (initial_distance - final_distance) / arena.depth / delta;
     }
 
     env->log.episode_length++;  // Increment episode length each step
