@@ -561,6 +561,7 @@ typedef struct CodeBall {
 
 void allocate(CodeBall* env) {
     env->robots = (Entity*)calloc(env->n_robots, sizeof(Entity));
+    
     env->nitro_packs = (NitroPack*)calloc(env->n_nitros, sizeof(NitroPack));
     env->actions = (double*)calloc(env->n_robots * 4, sizeof(double));
     env->rewards = (double*)calloc(env->n_robots, sizeof(double));
@@ -578,9 +579,9 @@ void free_allocated(CodeBall* env) {
 void reset_positions(CodeBall* env) {
     Entity* robots = env->robots;
     for (int i = 0; i < env->n_robots; i++) {
-        sim_dtype quarter = (env->n_robots / 2 - 1) / 2.0;
+        sim_dtype half = env->n_robots / 2 - 1;
         sim_dtype distance = arena.width * 0.4;
-        robots[i].position.x = ((i / 2) / quarter - quarter) * distance * 0.8;
+        robots[i].position.x = ((i / 2) / half - 0.5) * 2 * distance * 0.8;
         robots[i].position.z =
             sqrtf(distance * distance -
                   robots[i].position.x * robots[i].position.x) *
@@ -845,9 +846,9 @@ void step(CodeBall* env) {
     sim_dtype final_distance =
         // vec3d_length(vec3d_subtract(ball_final, env->robots[i].position));
         vec3d_length(vec3d_subtract(zero, env->robots[i].position));
-    env->rewards[i] = final_distance < ROBOT_MIN_RADIUS * 3.5 ? 1.0 : 0.0;
-    // env->rewards[i] =
-        // initial_distance > final_distance ? 1.0 : -1.0;
+    // env->rewards[i] = final_distance < ROBOT_MIN_RADIUS * 3.5 ? 1.0 : 0.0;
+    env->rewards[i] =
+        initial_distance > final_distance ? 0.1 : -0.1;
         // (initial_distance - final_distance) / arena.depth / delta;
     }
 

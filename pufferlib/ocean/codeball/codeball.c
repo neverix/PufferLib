@@ -17,7 +17,7 @@ int main() {
     srand(time(NULL)); // Seed the random number generator
     Client* client = make_client();
 
-    int n_robots = 6;
+    int n_robots = 8;
     int obs_size = (n_robots + 2) * 9;
     int action_size = 8;
     #if NETWORK_CONTROLLED
@@ -31,7 +31,7 @@ int main() {
     CodeBall env;
     env.n_robots = n_robots;
     env.n_nitros = 0;
-    env.frame_skip = 5;
+    env.frame_skip = 1;
     allocate(&env);
     reset(&env);
 
