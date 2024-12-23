@@ -118,6 +118,7 @@ cdef extern from "codeball.h":
         int frame_skip
         Log log
         LogBuffer* log_buffer
+        bool is_single
 
     void allocate(CodeBall* env)
 

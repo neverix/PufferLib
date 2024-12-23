@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 
-env = CodeBall(num_envs=1, n_robots=8)
+env = CodeBall(num_envs=1, n_robots=8, is_single=True)
 obs, _ = env.reset()
 
 

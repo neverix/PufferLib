@@ -15,27 +15,29 @@ import pufferlib
 
 class CodeBall(pufferlib.PufferEnv):
     def __init__(self, num_envs=2, n_robots=8, n_nitros=0, max_steps=2000,
-                 reward_mul=1.0,
+                 reward_mul=1.0, is_single=False,
                  frame_skip=5, buf=None, render_mode='human'):
+        self.is_single = is_single
         self.num_envs = num_envs
         self.num_agents = n_robots * num_envs
+        if is_single:
+            self.num_agents //= 2
         self.n_robots = n_robots
         self.n_nitros = n_nitros
         self.max_steps = max_steps
         self.render_mode = render_mode
 
-        # Define observation and action spaces
         self.single_observation_space = gymnasium.spaces.Box(
             low=-1, high=1,
             shape=((self.n_robots + 3), 9,)
             , dtype=np.float32)
-        # self.single_action_space = gymnasium.spaces.Box(low=-1, high=1, shape=(4,))
         self.single_action_space = gymnasium.spaces.Box(low=-np.inf, high=np.inf, shape=(4,))
 
         super().__init__(buf=buf)
 
         self.c_envs = CyCodeBall(
             self.num_envs, self.n_robots, self.n_nitros, frame_skip, reward_mul, max_steps,
+            self.is_single,
             self.observations,
             self.actions, self.rewards, self.terminals, self.truncations,
         )
@@ -72,7 +74,7 @@ if __name__ == '__main__':
     # actions = np.array([[0, 0]])
     # actions = np.array([[0]])
     actions = np.array([0.0])
-    actions = np.tile(actions, (env.num_envs * env.n_robots, 4))
+    actions = np.tile(actions, (env.num_agents, 4))
     # actions[:, :] = 3
     # actions[:, :] = 0
     actions[:] = 0

@@ -26,12 +26,16 @@ cdef class CyCodeBall:
     cdef bool[:] truncate_buffer
     cdef LogBuffer* log_aggregator
     cdef Client* client
+    cdef bool is_single
+    cdef int n_agents
 
     def __init__(self,
         int num_envs, int n_robots, int n_nitros, int frame_skip, double reward_mul, int max_steps,
+        bool is_single,
         float [:, :, :] observations,
         float [:, :] actions, float [:] rewards, bool [:] terminals, bool [:] truncations
     ):
+        self.is_single = is_single
         self.num_envs = num_envs
         self.n_robots = n_robots
         self.max_steps = max_steps
@@ -48,9 +52,14 @@ cdef class CyCodeBall:
             self.envs[i].n_robots = n_robots
             self.envs[i].n_nitros = n_nitros
             self.envs[i].frame_skip = frame_skip
+            self.envs[i].is_single = is_single
             allocate(&self.envs[i]) # allocate memory for each env
         
-        self.log_aggregator = allocate_logbuffer(self.num_envs);
+        self.log_aggregator = allocate_logbuffer(self.num_envs)
+        if is_single:
+            self.n_agents = self.n_robots // 2
+        else:
+            self.n_agents = self.n_robots
 
     def reset(self):
         cdef int i
@@ -59,15 +68,19 @@ cdef class CyCodeBall:
         self._observe()
 
     def _observe(self):
-        cdef int i, j
+        cdef int i, j, source_idx
         cdef float rew
         for i in range(self.num_envs):
-            make_observation(&self.envs[0], &self.observation_buffer[i * self.n_robots, 0, 0])
+            make_observation(&self.envs[0], &self.observation_buffer[i * self.n_agents, 0, 0])
         for i in range(self.num_envs):
-            for j in range(self.n_robots):
-                rew = self.envs[i].rewards[j] * self.reward_mul
-                self.reward_buffer[i * self.n_robots + j] = rew
-                self.terminal_buffer[i * self.n_robots + j] = self.envs[i].terminal
+            for j in range(self.n_agents):
+                if self.is_single:
+                    source_idx = j * 2
+                else:
+                    source_idx = j
+                rew = self.envs[i].rewards[source_idx] * self.reward_mul
+                self.reward_buffer[i * self.n_agents + j] = rew
+                self.terminal_buffer[i * self.n_agents + j] = self.envs[i].terminal
 
     def log_nth(self, int i):
         cdef Log log
@@ -91,7 +104,7 @@ cdef class CyCodeBall:
         render(self.client, &self.envs[0])
 
     def step(self,):
-        cdef int i, j, vel_action, jump_action
+        cdef int i, j, target_idx
         cdef float vel_x, vel_z
         for i in range(self.num_envs):
             if self.envs[i].tick >= self.max_steps:
@@ -100,8 +113,18 @@ cdef class CyCodeBall:
             else:
                 self.truncate_buffer[i] = False
 
-        for i in range(self.num_envs * self.n_robots * 4):
-            self.envs[i // (4 * self.n_robots)].actions[i % (4 * self.n_robots)] = self.action_buffer[i // 4, i % 4]
+        for i in range(self.num_envs):
+            for j in range(self.n_agents):
+                if self.is_single:
+                    target_idx = j * 2
+                else:
+                    target_idx = j
+                for k in range(4):
+                    self.envs[i].actions[target_idx * 4 + k] = self.action_buffer[i * (self.n_agents) + j, k]
+
+
+        # for i in range(self.num_envs * self.n_agents * 4):
+        #     self.envs[i // (4 * self.n_agents)].actions[i % (4 * self.n_agents)] = self.action_buffer[i // 4, i % 4]
 
         for i in range(self.num_envs):
             step(&self.envs[i])

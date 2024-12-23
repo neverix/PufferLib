@@ -563,6 +563,7 @@ typedef struct CodeBall {
     int frame_skip;
     Log log;
     LogBuffer* log_buffer;
+    bool is_single;
 } CodeBall;
 
 void allocate(CodeBall* env) {
@@ -778,11 +779,15 @@ void step(CodeBall* env) {
     memset(env->rewards, 0, env->n_robots * sizeof(double));
 
     for (int i = 0; i < env->n_robots; i++) {
-        env->robots[i].action = (Action){
-            .target_velocity = {env->actions[i * 4] * ROBOT_MAX_GROUND_SPEED, 0.0,
-                                env->actions[i * 4 + 1] * ROBOT_MAX_GROUND_SPEED},
-            .jump_speed = env->actions[i * 4 + 2] > 0.5 ? ROBOT_MAX_JUMP_SPEED : 0,
-            .use_nitro = env->actions[i * 4 + 3] > 0};
+        if (env->is_single && i % 2 == 1) {
+            env->robots[i].action = (Action){0};
+        } else {
+            env->robots[i].action = (Action){
+                .target_velocity = {env->actions[i * 4] * ROBOT_MAX_GROUND_SPEED, 0.0,
+                                    env->actions[i * 4 + 1] * ROBOT_MAX_GROUND_SPEED},
+                .jump_speed = env->actions[i * 4 + 2] > 0.5 ? ROBOT_MAX_JUMP_SPEED : 0,
+                .use_nitro = env->actions[i * 4 + 3] > 0};
+        }
     }
 
     Vec3D ball_initial = env->ball.position;
@@ -815,7 +820,7 @@ void step(CodeBall* env) {
                                                     env->robots[i].side);
         // env->rewards[i] = (initial_potential - final_potential) / arena.depth * 2.0;
         env->rewards[i] =
-            initial_potential == final_potential ? -0.01 : 0.01 +
+            initial_potential == final_potential ? -0.01 : 0.0 +
             (initial_potential > final_potential ? 0.1 : -0.1);
             // 1.0 - final_potential / arena.depth * 2.0;
         /*
@@ -866,7 +871,16 @@ sim_dtype goal_potential(Vec3D position,
 
 void make_observation(CodeBall* env, float *buffer) {
     Entity *ent;
-    for (int target = 0; target < env->n_robots; target++) {
+    int target;
+    for (int source = 0; source < env->n_robots; source++) {
+        if (env->is_single) {
+            if (source % 1 == 1) {
+                continue;
+            }
+            target = source / 2;
+        } else {
+            target = source;
+        }
         int o = target * (env->n_robots + 3) * 9;
         Vec3D target_pos = env->robots[target].position;
         for (int i = 0; i < env->n_robots + 2; i++) {
@@ -875,7 +889,7 @@ void make_observation(CodeBall* env, float *buffer) {
             } else if (i == env->n_robots) {
                 ent = &env->ball;
             } else {
-                ent = &env->robots[target];
+                ent = &env->robots[source];
             }
             buffer[o + i * 9 + 0] = ent->position.x / arena.width * 1.0;
             buffer[o + i * 9 + 1] = ent->position.y / arena.height * 1.0;
@@ -891,8 +905,9 @@ void make_observation(CodeBall* env, float *buffer) {
                 ent->velocity.z / ROBOT_MAX_GROUND_SPEED * 3.0;
         }
         int base = o + (env->n_robots + 2) * 9;
+        // relying on ent being set to the player robot
         buffer[base] = ent->side ? 1.0 : -1.0;
-        buffer[base + 1] = (target / (float)env->n_robots) * 2 - 1;
+        buffer[base + 1] = (source / (float)env->n_robots) * 2 - 1;
         buffer[base + 2] = env->ball.velocity.y != 0;
     }
 }
