@@ -3,7 +3,6 @@
 #include "codeball.h"
 #include "raymath.h"
 #include "rlgl.h"
-#include <sys/time.h>
 
 #include "base_vs.h"
 #include "fragment_fs.h"

@@ -3,9 +3,10 @@ from pufferlib.ocean.codeball.codeball import CodeBall
 from tqdm import trange
 import numpy as np
 import torch
+import os
 
 
-env = CodeBall(num_envs=1, n_robots=8, is_single=True)
+env = CodeBall(num_envs=1, n_robots=8, is_single=True, frame_skip=10)
 obs, _ = env.reset()
 
 
@@ -14,7 +15,7 @@ obs, _ = env.reset()
 wp = None
 if wp is None:
     from glob import glob
-    wp = sorted(glob("experiments/**/model_*.pt", recursive=True))[-1]
+    wp = max(glob("experiments/**/model_*.pt", recursive=True), key=lambda f: os.path.getmtime(f))
 rnn = torch.load(wp, map_location='cpu')
 rnn_state = None
 torch.set_grad_enabled(False)

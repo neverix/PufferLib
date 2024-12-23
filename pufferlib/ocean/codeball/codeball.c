@@ -2,6 +2,7 @@
 #include "codeball.h"
 #include "puffernet.h"
 #include "renderer.h"
+#include <sys/time.h>
 
 #if defined(PLATFORM_DESKTOP)
 #define GLSL_VERSION 330
@@ -98,6 +99,7 @@ int main() {
     }
 
     close_client(client);
+    free_allocated(&env);  // The memory leak
 
     return 0;
 }

@@ -105,6 +105,11 @@ cdef extern from "codeball.h":
 
     void move(Entity* e, sim_dtype delta_time)
 
+    cpdef enum BaselineType:
+        DO_NOTHING
+        RANDOM_ACTIONS
+        RUN_TO_BALL
+
     cdef struct CodeBall:
         Entity ball
         int n_robots
@@ -119,6 +124,7 @@ cdef extern from "codeball.h":
         Log log
         LogBuffer* log_buffer
         bool is_single
+        BaselineType baseline
 
     void allocate(CodeBall* env)
 

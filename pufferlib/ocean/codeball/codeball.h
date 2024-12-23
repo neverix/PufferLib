@@ -550,6 +550,12 @@ void move(Entity* e, sim_dtype delta_time) {
     e->velocity.y -= GRAVITY * delta_time;
 }
 
+typedef enum BaselineType {
+    DO_NOTHING,
+    RANDOM_ACTIONS,
+    RUN_TO_BALL
+} BaselineType;
+
 typedef struct CodeBall {
     Entity ball;
     int n_robots;
@@ -564,11 +570,11 @@ typedef struct CodeBall {
     Log log;
     LogBuffer* log_buffer;
     bool is_single;
+    BaselineType baseline;
 } CodeBall;
 
 void allocate(CodeBall* env) {
     env->robots = (Entity*)calloc(env->n_robots, sizeof(Entity));
-    
     env->nitro_packs = (NitroPack*)calloc(env->n_nitros, sizeof(NitroPack));
     env->actions = (double*)calloc(env->n_robots * 4, sizeof(double));
     env->rewards = (double*)calloc(env->n_robots, sizeof(double));
@@ -780,14 +786,49 @@ void step(CodeBall* env) {
 
     for (int i = 0; i < env->n_robots; i++) {
         if (env->is_single && i % 2 == 1) {
-            env->robots[i].action = (Action){0};
-        } else {
-            env->robots[i].action = (Action){
-                .target_velocity = {env->actions[i * 4] * ROBOT_MAX_GROUND_SPEED, 0.0,
-                                    env->actions[i * 4 + 1] * ROBOT_MAX_GROUND_SPEED},
-                .jump_speed = env->actions[i * 4 + 2] > 0.5 ? ROBOT_MAX_JUMP_SPEED : 0,
-                .use_nitro = env->actions[i * 4 + 3] > 0};
+            switch (env->baseline) {
+                case DO_NOTHING:
+                    env->actions[i * 4] = 0;
+                    env->actions[i * 4 + 1] = 0;
+                    env->actions[i * 4 + 2] = 0;
+                    env->actions[i * 4 + 3] = 0;
+                    break;
+                case RANDOM_ACTIONS: {
+                    float x_vel = ((float)rand() / RAND_MAX) * 2 - 1;
+                    float z_vel = ((float)rand() / RAND_MAX) * 2 - 1;
+                    env->actions[i * 4] = x_vel;
+                    env->actions[i * 4 + 1] = z_vel;
+                    env->actions[i * 4 + 2] = ((float)rand() / RAND_MAX) > 0.5;
+                    env->actions[i * 4 + 3] = ((float)rand() / RAND_MAX) > 0.5;
+                    break;
+                }
+                case RUN_TO_BALL: {
+                    Vec3D tgt = vec3d_subtract(env->ball.position,
+                                               env->robots[i].position);
+                    for (int k = 0; k < env->n_robots; k++) {
+                        if (k != i) {
+                            Vec3D diff = vec3d_subtract(env->robots[k].position,
+                                                        env->robots[i].position);
+                            double diff_len = vec3d_length(diff);
+                            if (diff_len < 2.5) {
+                                tgt = vec3d_multiply(diff, -1.0);
+                            }
+                        }
+                    }
+                    tgt = vec3d_multiply(tgt, ROBOT_MAX_GROUND_SPEED);
+                    env->actions[i * 4] = tgt.x;
+                    env->actions[i * 4 + 1] = tgt.z;
+                    env->actions[i * 4 + 2] = 0;
+                    env->actions[i * 4 + 3] = 0;
+                    break;
+                }
+            }
         }
+        env->robots[i].action = (Action){
+            .target_velocity = {env->actions[i * 4] * ROBOT_MAX_GROUND_SPEED, 0.0,
+                                env->actions[i * 4 + 1] * ROBOT_MAX_GROUND_SPEED},
+            .jump_speed = env->actions[i * 4 + 2] > 0.5 ? ROBOT_MAX_JUMP_SPEED : 0,
+            .use_nitro = env->actions[i * 4 + 3] > 0};
     }
 
     Vec3D ball_initial = env->ball.position;
@@ -820,7 +861,7 @@ void step(CodeBall* env) {
                                                     env->robots[i].side);
         // env->rewards[i] = (initial_potential - final_potential) / arena.depth * 2.0;
         env->rewards[i] =
-            initial_potential == final_potential ? -0.01 : 0.0 +
+            initial_potential == final_potential ? -0.001 : 0.0 +
             (initial_potential > final_potential ? 0.1 : -0.1);
             // 1.0 - final_potential / arena.depth * 2.0;
         /*
