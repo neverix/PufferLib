@@ -17,10 +17,13 @@ if wp is None:
     wp = sorted(glob("experiments/**/model_*.pt", recursive=True))[-1]
 rnn = torch.load(wp, map_location='cpu')
 rnn_state = None
-
+torch.set_grad_enabled(False)
 for _ in (bar := trange(10_000)):
     obs = torch.from_numpy(obs).float()
     actions, logprob, entropy, value, rnn_state = rnn(obs, rnn_state)
+    # logits, value, rnn_state = rnn.policy(obs, rnn_state)
+    # actions = logits
+    actions = actions.numpy()
     obs, rewards, terminated, truncated, info = env.step(actions)
     bar.set_postfix(val=(value.reshape(-1, 2).mean(0).tolist()))
     if (terminated | truncated).any():

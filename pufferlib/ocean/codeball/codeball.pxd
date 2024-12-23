@@ -6,6 +6,7 @@ cdef extern from "codeball.h":
         double episode_return_side
         double episode_return_total
         double episode_return_abs
+        double episode_return_one
         int episode_length
         double winner
 

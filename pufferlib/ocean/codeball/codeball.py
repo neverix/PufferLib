@@ -4,18 +4,17 @@ from tqdm.auto import trange
 import pufferlib
 
 try:
-    from .cy_codeball import CyCodeBall, robot_max_jump_speed, robot_max_ground_speed
+    from .cy_codeball import CyCodeBall
 except ImportError:
-    from cy_codeball import CyCodeBall, robot_max_jump_speed, robot_max_ground_speed
+    from cy_codeball import CyCodeBall
 
-import gymnasium as gym
+import gymnasium
 import numpy as np
 import pufferlib
 
 
 class CodeBall(pufferlib.PufferEnv):
-    def __init__(self, num_envs=2, n_robots=6, n_nitros=0, max_steps=2000,
-                #  reward_mul=20.0,
+    def __init__(self, num_envs=2, n_robots=8, n_nitros=0, max_steps=2000,
                  reward_mul=1.0,
                  frame_skip=5, buf=None, render_mode='human'):
         self.num_envs = num_envs
@@ -26,19 +25,17 @@ class CodeBall(pufferlib.PufferEnv):
         self.render_mode = render_mode
 
         # Define observation and action spaces
-        self.single_observation_space = gym.spaces.Box(
+        self.single_observation_space = gymnasium.spaces.Box(
             low=-1, high=1,
             shape=((self.n_robots + 3), 9,)
             , dtype=np.float32)
-        # self.single_action_space = gym.spaces.MultiDiscrete([8])
-        self.single_action_space = gym.spaces.Discrete(8)
-        # self.single_action_space = gym.spaces.MultiDiscrete([8, 2])
+        # self.single_action_space = gymnasium.spaces.Box(low=-1, high=1, shape=(4,))
+        self.single_action_space = gymnasium.spaces.Box(low=-np.inf, high=np.inf, shape=(4,))
 
         super().__init__(buf=buf)
 
         self.c_envs = CyCodeBall(
             self.num_envs, self.n_robots, self.n_nitros, frame_skip, reward_mul, max_steps,
-            # np.reshape(self.observations, (-1, self.n_robots + 2, 6)),
             self.observations,
             self.actions, self.rewards, self.terminals, self.truncations,
         )
@@ -51,7 +48,7 @@ class CodeBall(pufferlib.PufferEnv):
         return self.c_envs.render()
 
     def step(self, actions):
-        self.actions[:] = actions
+        self.actions[:] = np.clip(actions, -1.0, 1.0)
         self.c_envs.step()
 
         return (
@@ -74,9 +71,8 @@ if __name__ == '__main__':
 
     # actions = np.array([[0, 0]])
     # actions = np.array([[0]])
-    actions = np.array([0])
-    # actions = np.tile(actions, (env.num_envs * env.n_robots, 1))
-    actions = np.tile(actions, (env.num_envs * env.n_robots,))
+    actions = np.array([0.0])
+    actions = np.tile(actions, (env.num_envs * env.n_robots, 4))
     # actions[:, :] = 3
     # actions[:, :] = 0
     actions[:] = 0
@@ -85,10 +81,7 @@ if __name__ == '__main__':
     terminals = []
     truncations = []
     for _ in trange(10_000):
-        # actions[:, 0] = np.random.randint(0, 8, size=actions.shape[0])
-        actions[:] = np.random.randint(0, 8, size=actions.shape[0])
-        # actions[::2, 0] = 6 + np.random.randint(0, 3, size=actions.shape[0] // 2)
-        # actions[1::2, 0] = 2 + np.random.randint(0, 3, size=actions.shape[0] // 2)
+        actions[:] = np.random.uniform(-1, 1, size=actions.shape)
         obs, rewards, terminated, truncated, info = env.step(actions)
         all_obs.append(obs.copy())
         all_rewards.append(rewards.copy())

@@ -13,29 +13,13 @@ cdef extern from "codeball.h":
     cdef double ROBOT_MAX_JUMP_SPEED
     cdef double ROBOT_MAX_GROUND_SPEED
 
-cpdef vec3d_dtype():
-    cdef Vec3D v
-    return np.asarray(<Vec3D[:1]>&v).dtype
-
-cpdef entity_dtype():
-    cdef Entity e
-    return np.asarray(<Entity[:1]>&e).dtype
-
-cpdef nitro_pack_dtype():
-    cdef NitroPack np_
-    return np.asarray(<NitroPack[:1]>&np_).dtype
-
-robot_max_jump_speed = ROBOT_MAX_JUMP_SPEED
-robot_max_ground_speed = ROBOT_MAX_GROUND_SPEED
-cdef float arena_size = max(arena.width, arena.depth) / 2
-
 cdef class CyCodeBall:
     cdef CodeBall* envs
     cdef int num_envs
     cdef int n_robots
     cdef int max_steps
     cdef double reward_mul
-    cdef int[:] action_buffer
+    cdef float[:, :] action_buffer
     cdef float[:] reward_buffer
     cdef float[:, :, :] observation_buffer
     cdef bool[:] terminal_buffer
@@ -46,7 +30,7 @@ cdef class CyCodeBall:
     def __init__(self,
         int num_envs, int n_robots, int n_nitros, int frame_skip, double reward_mul, int max_steps,
         float [:, :, :] observations,
-        int [:] actions, float [:] rewards, bool [:] terminals, bool [:] truncations
+        float [:, :] actions, float [:] rewards, bool [:] terminals, bool [:] truncations
     ):
         self.num_envs = num_envs
         self.n_robots = n_robots
@@ -72,7 +56,6 @@ cdef class CyCodeBall:
         cdef int i
         for i in range(self.num_envs):
             reset(&self.envs[i])
-        
         self._observe()
 
     def _observe(self):
@@ -94,6 +77,8 @@ cdef class CyCodeBall:
     def log(self):
         cdef int i
         cdef Log log
+        self.log_aggregator.idx = 0
+        self.log_aggregator.length = 0
         for i in range(self.num_envs):
             log = aggregate(self.envs[i].log_buffer)
             add_log(self.log_aggregator, &log)
@@ -115,20 +100,8 @@ cdef class CyCodeBall:
             else:
                 self.truncate_buffer[i] = False
 
-        for i in range(self.num_envs):
-            for j in range(self.n_robots):
-                # vel_action = self.action_buffer[i * self.n_robots + j, 0]
-                vel_action = self.action_buffer[i * self.n_robots + j]
-                if vel_action == 4:
-                    vel_action = 8
-                # jump_action = self.action_buffer[i * self.n_robots + j, 1] > 0
-                jump_action = 0
-                vel_x = vel_action % 3 - 1
-                vel_z = vel_action // 3 - 1
-                self.envs[i].actions[j * 4] = vel_x * ROBOT_MAX_GROUND_SPEED
-                self.envs[i].actions[j * 4 + 1] = 0
-                self.envs[i].actions[j * 4 + 2] = vel_z * ROBOT_MAX_GROUND_SPEED
-                self.envs[i].actions[j * 4 + 3] = jump_action * ROBOT_MAX_JUMP_SPEED
+        for i in range(self.num_envs * self.n_robots * 4):
+            self.envs[i // (4 * self.n_robots)].actions[i % (4 * self.n_robots)] = self.action_buffer[i // 4, i % 4]
 
         for i in range(self.num_envs):
             step(&self.envs[i])

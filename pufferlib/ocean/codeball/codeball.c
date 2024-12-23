@@ -80,8 +80,7 @@ int main() {
                 }
                 tgt = vec3d_multiply(tgt, ROBOT_MAX_GROUND_SPEED);
                 env.actions[j * 4] = tgt.x;
-                env.actions[j * 4 + 1] = tgt.y;
-                env.actions[j * 4 + 2] = tgt.z;
+                env.actions[j * 4 + 1] = tgt.z;
             }
             #endif
             step(&env);

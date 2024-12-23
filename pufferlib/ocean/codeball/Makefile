@@ -1,14 +1,12 @@
 CFILES=codeball.c
 HFILES=codeball.h renderer.h
 CFLAGS=\
-	-lm -I../../../raylib/include -I../../../pufferlib -lpthread ../../../raylib/lib/libraylib.a -lglfw -lobjc \
-	-framework Cocoa -framework OpenGL -framework IOKit -framework CoreVideo -framework GLUT -framework AppKit \
-	-O1 -g -fsanitize=address -fno-omit-frame-pointer
+	-lm -I../../../raylib/include -I../../../pufferlib -lpthread ../../../raylib/lib/libraylib.a \
+	-O1 -g -fsanitize=address -fno-omit-frame-pointer \
+	-framework Cocoa -framework OpenGL -framework IOKit -framework CoreVideo -framework GLUT -framework AppKit -lglfw -lobjc \
 	# -O3 -march=native -funroll-loops
 SHADERS=base_vs.h fragment_fs.h
 
-#	-std=c99 -Wall -pedantic -Wextra -Werror -Wstrict-prototypes -Wold-style-definition -Werror=vla -lm \
-	-I../../../raylib/include -I../../../pufferlib -lpthread
 ARCH=$(shell uname -m)
 PYTHON_VERSION=$(shell python -c 'import sys; print(str(sys.version_info.major) + str(sys.version_info.minor) + "-" + sys.platform)')
 PYTHON_SO_POSTFIX=cpython-${PYTHON_VERSION}.so
