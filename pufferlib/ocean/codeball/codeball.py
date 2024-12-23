@@ -28,7 +28,7 @@ class CodeBall(pufferlib.PufferEnv):
         # Define observation and action spaces
         self.single_observation_space = gym.spaces.Box(
             low=-1, high=1,
-            shape=((self.n_robots + 2), 9,)
+            shape=((self.n_robots + 3), 9,)
             , dtype=np.float32)
         # self.single_action_space = gym.spaces.MultiDiscrete([8])
         self.single_action_space = gym.spaces.Discrete(8)

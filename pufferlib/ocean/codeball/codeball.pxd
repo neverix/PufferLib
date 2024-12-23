@@ -5,6 +5,7 @@ cdef extern from "codeball.h":
     cdef struct Log:
         double episode_return_side
         double episode_return_total
+        double episode_return_abs
         int episode_length
         double winner
 

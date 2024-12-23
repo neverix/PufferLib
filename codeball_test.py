@@ -18,10 +18,11 @@ if wp is None:
 rnn = torch.load(wp, map_location='cpu')
 rnn_state = None
 
-for _ in trange(10_000):
+for _ in (bar := trange(10_000)):
     obs = torch.from_numpy(obs).float()
     actions, logprob, entropy, value, rnn_state = rnn(obs, rnn_state)
     obs, rewards, terminated, truncated, info = env.step(actions)
+    bar.set_postfix(val=(value.reshape(-1, 2).mean(0).tolist()))
     if (terminated | truncated).any():
         rnn_state = None
     env.render()
