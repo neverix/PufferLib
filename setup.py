@@ -69,7 +69,7 @@ cleanrl = [
     'tensorboard==2.11.2',
     'torch',
     'tyro==0.8.6',
-    'wandb==0.13.7',
+    'wandb==0.19.1',
 ]
 
 ray = [
@@ -258,6 +258,7 @@ extension_paths = [
     'pufferlib/ocean/tripletriad/cy_tripletriad',
     'pufferlib/ocean/go/cy_go',
     'pufferlib/ocean/rware/cy_rware',
+    'pufferlib/ocean/trash_pickup/cy_trash_pickup'
 ]
 
 extensions = [Extension(
