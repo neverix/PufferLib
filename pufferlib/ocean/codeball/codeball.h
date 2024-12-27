@@ -558,8 +558,8 @@ typedef struct CodeBall {
     int n_nitros;
     NitroPack* nitro_packs;
     int tick;
-    double* actions;
-    double* rewards;
+    float* actions;
+    float* rewards;
     bool terminal;
     int frame_skip;
     Log log;
@@ -574,16 +574,12 @@ typedef struct CodeBall {
 void allocate(CodeBall* env) {
     env->robots = (Entity*)calloc(env->n_robots, sizeof(Entity));
     env->nitro_packs = (NitroPack*)calloc(env->n_nitros, sizeof(NitroPack));
-    env->actions = (double*)calloc(env->n_robots * 4, sizeof(double));
-    env->rewards = (double*)calloc(env->n_robots, sizeof(double));
     env->log_buffer = allocate_logbuffer(LOG_BUFFER_SIZE);
 }
 
 void free_allocated(CodeBall* env) {
     free(env->robots);
     free(env->nitro_packs);
-    free(env->actions);
-    free(env->rewards);
     free_logbuffer(env->log_buffer);
 }
 
@@ -637,7 +633,7 @@ void reset_positions(CodeBall* env) {
         env->nitro_packs[i].alive = true;
     }
 
-    memset(env->actions, 0, env->n_robots * 4 * sizeof(double));
+    memset(env->actions, 0, env->n_robots * 4 * sizeof(float));
     env->tick = 0;
 
     if (env->frame_skip == 0) {
@@ -660,7 +656,7 @@ void goal_scored(CodeBall *env, bool side) {
 
 void reset(CodeBall* env) {
     reset_positions(env);
-    memset(env->rewards, 0, env->n_robots * sizeof(double));
+    memset(env->rewards, 0, env->n_robots * sizeof(float));
 
     env->terminal = false;
     
@@ -787,53 +783,64 @@ sim_dtype goal_potential(Vec3D position, CodeBallArena* arena, bool side);
 
 void step(CodeBall* env) {
     env->terminal = false;
-    memset(env->rewards, 0, env->n_robots * sizeof(double));
+    memset(env->rewards, 0, env->n_robots * sizeof(float));
+    float actions[4];
 
     for (int i = 0; i < env->n_robots; i++) {
-        if (env->is_single && i % 2 == 1) {
-            switch (env->baseline) {
-                case DO_NOTHING:
-                    env->actions[i * 4] = 0;
-                    env->actions[i * 4 + 1] = 0;
-                    env->actions[i * 4 + 2] = 0;
-                    env->actions[i * 4 + 3] = 0;
-                    break;
-                case RANDOM_ACTIONS: {
-                    float x_vel = ((float)rand() / RAND_MAX) * 2 - 1;
-                    float z_vel = ((float)rand() / RAND_MAX) * 2 - 1;
-                    env->actions[i * 4] = x_vel;
-                    env->actions[i * 4 + 1] = z_vel;
-                    env->actions[i * 4 + 2] = ((float)rand() / RAND_MAX) > 0.5;
-                    env->actions[i * 4 + 3] = ((float)rand() / RAND_MAX) > 0.5;
-                    break;
+        if (env->is_single) {
+            if (i % 2 == 0) {
+                for (int j = 0; j < 4; j++) {
+                    actions[j] = env->actions[(i / 2) * 4 + j];
                 }
-                case RUN_TO_BALL: {
-                    Vec3D tgt = vec3d_subtract(env->ball.position,
-                                               env->robots[i].position);
-                    for (int k = 0; k < env->n_robots; k++) {
-                        if (k != i) {
-                            Vec3D diff = vec3d_subtract(env->robots[k].position,
-                                                        env->robots[i].position);
-                            double diff_len = vec3d_length(diff);
-                            if (diff_len < 2.5) {
-                                tgt = vec3d_multiply(diff, -1.0);
+            } else {
+                switch (env->baseline) {
+                    case DO_NOTHING:
+                        actions[i * 4] = 0;
+                        actions[i * 4 + 1] = 0;
+                        actions[i * 4 + 2] = 0;
+                        actions[i * 4 + 3] = 0;
+                        break;
+                    case RANDOM_ACTIONS: {
+                        float x_vel = ((float)rand() / RAND_MAX) * 2 - 1;
+                        float z_vel = ((float)rand() / RAND_MAX) * 2 - 1;
+                        actions[i * 4] = x_vel;
+                        actions[i * 4 + 1] = z_vel;
+                        actions[i * 4 + 2] = ((float)rand() / RAND_MAX) > 0.5;
+                        actions[i * 4 + 3] = ((float)rand() / RAND_MAX) > 0.5;
+                        break;
+                    }
+                    case RUN_TO_BALL: {
+                        Vec3D tgt = vec3d_subtract(env->ball.position,
+                                                env->robots[i].position);
+                        for (int k = 0; k < env->n_robots; k++) {
+                            if (k != i) {
+                                Vec3D diff = vec3d_subtract(env->robots[k].position,
+                                                            env->robots[i].position);
+                                double diff_len = vec3d_length(diff);
+                                if (diff_len < 2.5) {
+                                    tgt = vec3d_multiply(diff, -1.0);
+                                }
                             }
                         }
+                        tgt = vec3d_multiply(tgt, ROBOT_MAX_GROUND_SPEED);
+                        actions[i * 4] = tgt.x;
+                        actions[i * 4 + 1] = tgt.z;
+                        actions[i * 4 + 2] = 0;
+                        actions[i * 4 + 3] = 0;
+                        break;
                     }
-                    tgt = vec3d_multiply(tgt, ROBOT_MAX_GROUND_SPEED);
-                    env->actions[i * 4] = tgt.x;
-                    env->actions[i * 4 + 1] = tgt.z;
-                    env->actions[i * 4 + 2] = 0;
-                    env->actions[i * 4 + 3] = 0;
-                    break;
                 }
+            }
+        } else {
+            for (int j = 0; j < 4; j++) {
+                actions[j] = env->actions[i * 4 + j];
             }
         }
         env->robots[i].action = (Action){
-            .target_velocity = {env->actions[i * 4] * ROBOT_MAX_GROUND_SPEED, 0.0,
-                                env->actions[i * 4 + 1] * ROBOT_MAX_GROUND_SPEED},
-            .jump_speed = env->actions[i * 4 + 2] > 0.5 ? ROBOT_MAX_JUMP_SPEED : 0,
-            .use_nitro = env->actions[i * 4 + 3] > 0};
+            .target_velocity = {actions[i * 4] * ROBOT_MAX_GROUND_SPEED, 0.0,
+                                actions[i * 4 + 1] * ROBOT_MAX_GROUND_SPEED},
+            .jump_speed = actions[i * 4 + 2] > 0.5 ? ROBOT_MAX_JUMP_SPEED : 0,
+            .use_nitro = actions[i * 4 + 3] > 0};
     }
 
     Vec3D ball_initial = env->ball.position;

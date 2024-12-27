@@ -49,6 +49,10 @@ cdef class CyCodeBall:
         self.terminal_buffer = terminals
         self.truncate_buffer = truncations
 
+        if is_single:
+            self.n_agents = self.n_robots // 2
+        else:
+            self.n_agents = self.n_robots
         cdef int i
         for i in range(num_envs):
             self.envs[i].n_robots = n_robots
@@ -58,6 +62,8 @@ cdef class CyCodeBall:
             self.envs[i].goal_scored_reward = goal_scored_reward
             self.envs[i].loiter_penalty = loiter_penalty
             self.envs[i].ball_reward = ball_reward
+            self.envs[i].rewards = &self.reward_buffer[i * n_robots]
+            self.envs[i].actions = &self.action_buffer[i * self.n_agents, 0]
             if baseline - 1 == 0:
                 self.envs[i].baseline = DO_NOTHING
             elif baseline - 1 == 1:
@@ -67,10 +73,6 @@ cdef class CyCodeBall:
             allocate(&self.envs[i]) # allocate memory for each env
         
         self.log_aggregator = allocate_logbuffer(self.num_envs)
-        if is_single:
-            self.n_agents = self.n_robots // 2
-        else:
-            self.n_agents = self.n_robots
 
     def reset(self):
         cdef int i
@@ -79,18 +81,12 @@ cdef class CyCodeBall:
         self._observe()
 
     def _observe(self):
-        cdef int i, j, source_idx
+        cdef int i, j
         cdef float rew
         for i in range(self.num_envs):
             make_observation(&self.envs[0], &self.observation_buffer[i * self.n_agents, 0, 0])
         for i in range(self.num_envs):
             for j in range(self.n_agents):
-                if self.is_single:
-                    source_idx = j * 2
-                else:
-                    source_idx = j
-                rew = self.envs[i].rewards[source_idx] * self.reward_mul
-                self.reward_buffer[i * self.n_agents + j] = rew
                 self.terminal_buffer[i * self.n_agents + j] = self.envs[i].terminal
 
     def log_nth(self, int i):
@@ -123,19 +119,6 @@ cdef class CyCodeBall:
                 reset(&self.envs[i])
             else:
                 self.truncate_buffer[i] = False
-
-        for i in range(self.num_envs):
-            for j in range(self.n_agents):
-                if self.is_single:
-                    target_idx = j * 2
-                else:
-                    target_idx = j
-                for k in range(4):
-                    self.envs[i].actions[target_idx * 4 + k] = self.action_buffer[i * (self.n_agents) + j, k]
-
-
-        # for i in range(self.num_envs * self.n_agents * 4):
-        #     self.envs[i // (4 * self.n_agents)].actions[i % (4 * self.n_agents)] = self.action_buffer[i // 4, i % 4]
 
         for i in range(self.num_envs):
             step(&self.envs[i])

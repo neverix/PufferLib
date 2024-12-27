@@ -117,8 +117,8 @@ cdef extern from "codeball.h":
         int n_nitros
         NitroPack* nitro_packs
         int tick
-        double* actions
-        double* rewards
+        float* actions
+        float* rewards
         bool terminal
         int frame_skip
         Log log
