@@ -15,8 +15,6 @@
 #define ROBOT_ARENA_E 0.0
 #define ROBOT_MASS 2.0
 #define TICKS_PER_SECOND 60
-// #define MICROTICKS_PER_TICK 100
-// #define MICROTICKS_PER_TICK 20
 #define MICROTICKS_PER_TICK 1
 #define RESET_TICKS (2 * TICKS_PER_SECOND)
 #define BALL_ARENA_E 0.7
@@ -32,11 +30,8 @@
 #define NITRO_PACK_Y 1.0
 #define NITRO_PACK_Z 30.0
 #define NITRO_PACK_RADIUS 0.5
-#define NITRO_PACK_AMOUNT 4  // Corrected: There are 4 nitro packs
 #define NITRO_PACK_RESPAWN_TICKS (10 * TICKS_PER_SECOND)
 #define GRAVITY 30.0
-// #define SCORE_REWARD 0.03
-#define SCORE_REWARD 1.0
 
 typedef double sim_dtype;
 
@@ -634,6 +629,13 @@ void reset_positions(CodeBall* env) {
     ball.action.jump_speed = 0;
     ball.action.use_nitro = false;
     env->ball = ball;
+
+    for (int i = 0; i < env->n_nitros; i++) {
+        env->nitro_packs[i].position.x = NITRO_PACK_X * (i % 2 == 0 ? -1 : 1);
+        env->nitro_packs[i].position.z = NITRO_PACK_Z * (i / 2 == 0 ? -1 : 1);
+        env->nitro_packs[i].position.y = NITRO_PACK_Y;
+        env->nitro_packs[i].alive = true;
+    }
 
     memset(env->actions, 0, env->n_robots * 4 * sizeof(double));
     env->tick = 0;

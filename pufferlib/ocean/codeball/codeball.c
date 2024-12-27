@@ -31,7 +31,7 @@ int main() {
 
     CodeBall env;
     env.n_robots = n_robots;
-    env.n_nitros = 0;
+    env.n_nitros = 4;
     env.frame_skip = 1;
     allocate(&env);
     reset(&env);

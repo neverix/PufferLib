@@ -190,15 +190,13 @@ void render(Client* client, CodeBall* env) {
         MyDrawSphere(client, cvt(robots[i].position), robots[i].radius, robot_color);
     }
 
-    // Draw ball (as a box)
-    // DrawCube(cvt(ball.position), ball.radius * 2, ball.radius * 2, ball.radius * 2,
-    //          client->ball_color);
+    // Draw ball
     MyDrawSphere(client, cvt(ball.position), ball.radius, client->ball_color);
 
-    // Draw nitro packs (as boxes)
+    // Draw nitro packs
     for (int i = 0; i < env->n_nitros; i++) {
         if (nitro_packs[i].alive) {
-            MyDrawSphere(client, cvt(nitro_packs[i].position), nitro_packs[i].radius * 2,
+            MyDrawSphere(client, cvt(nitro_packs[i].position), NITRO_PACK_RADIUS * 2,
                      client->nitro_color);
         }
     }
