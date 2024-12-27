@@ -62,7 +62,6 @@ cdef class CyCodeBall:
             self.envs[i].goal_scored_reward = goal_scored_reward
             self.envs[i].loiter_penalty = loiter_penalty
             self.envs[i].ball_reward = ball_reward
-            self.envs[i].rewards = &self.reward_buffer[i * n_robots]
             self.envs[i].actions = &self.action_buffer[i * self.n_agents, 0]
             if baseline - 1 == 0:
                 self.envs[i].baseline = DO_NOTHING
@@ -70,7 +69,7 @@ cdef class CyCodeBall:
                 self.envs[i].baseline = RANDOM_ACTIONS
             else:
                 self.envs[i].baseline = RUN_TO_BALL
-            allocate(&self.envs[i]) # allocate memory for each env
+            allocate(&self.envs[i])
         
         self.log_aggregator = allocate_logbuffer(self.num_envs)
 
@@ -81,13 +80,17 @@ cdef class CyCodeBall:
         self._observe()
 
     def _observe(self):
-        cdef int i, j
+        cdef int i, j, source_idx
         cdef float rew
         for i in range(self.num_envs):
             make_observation(&self.envs[0], &self.observation_buffer[i * self.n_agents, 0, 0])
         for i in range(self.num_envs):
             for j in range(self.n_agents):
                 self.terminal_buffer[i * self.n_agents + j] = self.envs[i].terminal
+                source_idx = j
+                if self.is_single:
+                    source_idx = j * 2
+                self.reward_buffer[i * self.n_agents + j] = self.envs[i].rewards[source_idx] * self.reward_mul
 
     def log_nth(self, int i):
         cdef Log log

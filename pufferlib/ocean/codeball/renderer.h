@@ -21,15 +21,13 @@ struct Client {
 
 Client* make_client() {
     Client* client = (Client*)calloc(1, sizeof(Client));
-    client->width = 800;   // Example width
-    client->height = 600;  // Example height
+    client->width = 800;
+    client->height = 600;
     client->robot_color[0] = RED;
     client->robot_color[1] = BLUE;
     client->ball_color = WHITE;
     client->nitro_color = GREEN;
     client->camera =
-        // (Camera3D){(Vector3){0.0f, 40.0f, -60.0f}, (Vector3){0.0f, 0.0f,
-        // 0.0f},
         (Camera3D){(Vector3){0.0f, 60.0f, -90.0f}, (Vector3){0.0f, 0.0f, 0.0f},
                    (Vector3){0.0f, 1.0f, 0.0f}, 45.0f, 0};
 

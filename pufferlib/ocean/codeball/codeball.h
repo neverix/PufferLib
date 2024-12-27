@@ -5,7 +5,6 @@
 #include <stdbool.h>
 #include <string.h>
 
-// Constants (from the description)
 #define ROBOT_MIN_RADIUS 1.0
 #define ROBOT_MAX_RADIUS 1.05
 #define ROBOT_MAX_JUMP_SPEED 15.0
@@ -14,7 +13,7 @@
 #define ROBOT_MAX_GROUND_SPEED 30.0
 #define ROBOT_ARENA_E 0.0
 #define ROBOT_MASS 2.0
-#define TICKS_PER_SECOND 60
+#define TICKS_PER_SECOND 30
 #define MICROTICKS_PER_TICK 1
 #define RESET_TICKS (2 * TICKS_PER_SECOND)
 #define BALL_ARENA_E 0.7
@@ -32,8 +31,6 @@
 #define NITRO_PACK_RADIUS 0.5
 #define NITRO_PACK_RESPAWN_TICKS (10 * TICKS_PER_SECOND)
 #define GRAVITY 30.0
-
-typedef double sim_dtype;
 
 #define LOG_BUFFER_SIZE 1024
 
@@ -109,32 +106,32 @@ Log aggregate_and_clear(LogBuffer* logs) {
 
 // Arena parameters (from the description)
 typedef struct {
-    sim_dtype width;
-    sim_dtype height;
-    sim_dtype depth;
-    sim_dtype bottom_radius;
-    sim_dtype top_radius;
-    sim_dtype corner_radius;
-    sim_dtype goal_top_radius;
-    sim_dtype goal_width;
-    sim_dtype goal_depth;
-    sim_dtype goal_height;
-    sim_dtype goal_side_radius;
+    float width;
+    float height;
+    float depth;
+    float bottom_radius;
+    float top_radius;
+    float corner_radius;
+    float goal_top_radius;
+    float goal_width;
+    float goal_depth;
+    float goal_height;
+    float goal_side_radius;
 } CodeBallArena;
 
 CodeBallArena arena = {60, 20, 80, 3, 7, 13, 3, 30, 10, 10, 1};
 
 // 3D Vector
 typedef struct {
-    sim_dtype x;
-    sim_dtype y;
-    sim_dtype z;
+    float x;
+    float y;
+    float z;
 } Vec3D;
 
 // Action structure
 typedef struct {
     Vec3D target_velocity;
-    sim_dtype jump_speed;
+    float jump_speed;
     bool use_nitro;
 } Action;
 
@@ -142,13 +139,13 @@ typedef struct {
 typedef struct {
     Vec3D position;
     Vec3D velocity;
-    sim_dtype radius;
-    sim_dtype radius_change_speed;
-    sim_dtype mass;
-    sim_dtype arena_e;
+    float radius;
+    float radius_change_speed;
+    float mass;
+    float arena_e;
     bool touch;
     Vec3D touch_normal;
-    sim_dtype nitro;
+    float nitro;
     Action action;
     bool side;
 } Entity;
@@ -158,18 +155,18 @@ typedef struct {
     Vec3D position;
     bool alive;
     int respawn_ticks;
-    sim_dtype radius;  // Nitro pack has radius
+    float radius;  // Nitro pack has radius
 } NitroPack;
 
 // Helper functions
-sim_dtype vec3d_length(Vec3D v) { return sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
+float vec3d_length(Vec3D v) { return sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 Vec3D vec3d_normalize(Vec3D v) {
-    sim_dtype l = vec3d_length(v);
+    float l = vec3d_length(v);
     if (l == 0) return (Vec3D){0, 0, 0};  // Avoid division by zero
     return (Vec3D){v.x / l, v.y / l, v.z / l};
 }
 
-sim_dtype vec3d_dot(Vec3D a, Vec3D b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+float vec3d_dot(Vec3D a, Vec3D b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 
 Vec3D vec3d_subtract(Vec3D a, Vec3D b) {
     return (Vec3D){a.x - b.x, a.y - b.y, a.z - b.z};
@@ -177,17 +174,17 @@ Vec3D vec3d_subtract(Vec3D a, Vec3D b) {
 Vec3D vec3d_add(Vec3D a, Vec3D b) {
     return (Vec3D){a.x + b.x, a.y + b.y, a.z + b.z};
 }
-Vec3D vec3d_multiply(Vec3D v, sim_dtype s) {
+Vec3D vec3d_multiply(Vec3D v, float s) {
     return (Vec3D){v.x * s, v.y * s, v.z * s};
 }
 
-sim_dtype clamp(sim_dtype val, sim_dtype min, sim_dtype max) {
+float clamp(float val, float min, float max) {
     if (val < min) return min;
     if (val > max) return max;
     return val;
 }
-Vec3D vec3d_clamp(Vec3D v, sim_dtype max_length) {
-    sim_dtype length = vec3d_length(v);
+Vec3D vec3d_clamp(Vec3D v, float max_length) {
+    float length = vec3d_length(v);
     if (length > max_length) {
         return vec3d_multiply(v, max_length / length);
     }
@@ -195,7 +192,7 @@ Vec3D vec3d_clamp(Vec3D v, sim_dtype max_length) {
 }
 
 typedef struct {
-    sim_dtype distance;
+    float distance;
     Vec3D normal;
 } DistanceAndNormal;
 
@@ -208,14 +205,14 @@ DistanceAndNormal dan_to_plane(Vec3D point, Vec3D point_on_plane,
 }
 
 DistanceAndNormal dan_to_sphere_inner(Vec3D point, Vec3D sphere_center,
-                                      sim_dtype sphere_radius) {
+                                      float sphere_radius) {
     return (DistanceAndNormal){
         sphere_radius - vec3d_length(vec3d_subtract(point, sphere_center)),
         vec3d_normalize(vec3d_subtract(sphere_center, point))};
 }
 
 DistanceAndNormal dan_to_sphere_outer(Vec3D point, Vec3D sphere_center,
-                                      sim_dtype sphere_radius) {
+                                      float sphere_radius) {
     return (DistanceAndNormal){
         vec3d_length(vec3d_subtract(point, sphere_center)) - sphere_radius,
         vec3d_normalize(vec3d_subtract(point, sphere_center))};
@@ -409,7 +406,7 @@ DistanceAndNormal dan_to_arena_quarter(Vec3D point) {
             Vec3D corner_o = {(arena.width / 2.0) - arena.corner_radius,
                               (arena.depth / 2.0) - arena.corner_radius, 0};
             Vec3D n = {point.x - corner_o.x, point.z - corner_o.y, 0};
-            sim_dtype dist = vec3d_length(n);
+            float dist = vec3d_length(n);
             if (dist > arena.corner_radius - arena.bottom_radius) {
                 n = vec3d_normalize(n);
                 Vec3D o2 = {corner_o.x + n.x * (arena.corner_radius -
@@ -480,11 +477,11 @@ void collide_entities(Entity* a, Entity* b) {
     Vec3D delta_position = {b->position.x - a->position.x,
                             b->position.y - a->position.y,
                             b->position.z - a->position.z};
-    sim_dtype distance = vec3d_length(delta_position);
-    sim_dtype penetration = a->radius + b->radius - distance;
+    float distance = vec3d_length(delta_position);
+    float penetration = a->radius + b->radius - distance;
     if (penetration > 0) {
-        sim_dtype k_a = (1.0 / a->mass) / ((1.0 / a->mass) + (1.0 / b->mass));
-        sim_dtype k_b = (1.0 / b->mass) / ((1.0 / a->mass) + (1.0 / b->mass));
+        float k_a = (1.0 / a->mass) / ((1.0 / a->mass) + (1.0 / b->mass));
+        float k_b = (1.0 / b->mass) / ((1.0 / a->mass) + (1.0 / b->mass));
         Vec3D normal = vec3d_normalize(delta_position);
         a->position.x -= normal.x * penetration * k_a;
         a->position.y -= normal.y * penetration * k_a;
@@ -493,7 +490,7 @@ void collide_entities(Entity* a, Entity* b) {
         b->position.y += normal.y * penetration * k_b;
         b->position.z += normal.z * penetration * k_b;
 
-        sim_dtype delta_velocity =
+        float delta_velocity =
             vec3d_dot((Vec3D){b->velocity.x - a->velocity.x,
                               b->velocity.y - a->velocity.y,
                               b->velocity.z - a->velocity.z},
@@ -501,7 +498,7 @@ void collide_entities(Entity* a, Entity* b) {
             b->radius_change_speed - a->radius_change_speed;
 
         if (delta_velocity < 0) {
-            sim_dtype e = ((sim_dtype)rand() / RAND_MAX) * (MAX_HIT_E - MIN_HIT_E) +
+            float e = ((float)rand() / RAND_MAX) * (MAX_HIT_E - MIN_HIT_E) +
                        MIN_HIT_E;
             Vec3D impulse = {normal.x * (1 + e) * delta_velocity,
                              normal.y * (1 + e) * delta_velocity,
@@ -518,13 +515,13 @@ void collide_entities(Entity* a, Entity* b) {
 
 Vec3D collide_with_arena(Entity* e) {
     DistanceAndNormal dan = dan_to_arena(e->position);
-    sim_dtype penetration = e->radius - dan.distance;
+    float penetration = e->radius - dan.distance;
     if (penetration > 0) {
         e->position.x += dan.normal.x * penetration;
         e->position.y += dan.normal.y * penetration;
         e->position.z += dan.normal.z * penetration;
 
-        sim_dtype velocity =
+        float velocity =
             vec3d_dot(e->velocity, dan.normal) - e->radius_change_speed;
         if (velocity < 0) {
             e->velocity.x -= (1 + e->arena_e) * velocity * dan.normal.x;
@@ -536,7 +533,7 @@ Vec3D collide_with_arena(Entity* e) {
     return (Vec3D){0, 0, 0};  // Return zero vector to indicate no collision
 }
 
-void move(Entity* e, sim_dtype delta_time) {
+void move(Entity* e, float delta_time) {
     e->velocity = vec3d_clamp(e->velocity, MAX_ENTITY_SPEED);
     e->position.x += e->velocity.x * delta_time;
     e->position.y += e->velocity.y * delta_time;
@@ -574,20 +571,22 @@ typedef struct CodeBall {
 void allocate(CodeBall* env) {
     env->robots = (Entity*)calloc(env->n_robots, sizeof(Entity));
     env->nitro_packs = (NitroPack*)calloc(env->n_nitros, sizeof(NitroPack));
+    env->rewards = (float*)calloc(env->n_robots, sizeof(float));
     env->log_buffer = allocate_logbuffer(LOG_BUFFER_SIZE);
 }
 
 void free_allocated(CodeBall* env) {
     free(env->robots);
     free(env->nitro_packs);
+    free(env->rewards);
     free_logbuffer(env->log_buffer);
 }
 
 void reset_positions(CodeBall* env) {
     Entity* robots = env->robots;
     for (int i = 0; i < env->n_robots; i++) {
-        sim_dtype half = env->n_robots / 2 - 1;
-        sim_dtype distance = arena.width * 0.4;
+        float half = env->n_robots / 2 - 1;
+        float distance = arena.width * 0.4;
         robots[i].position.x = ((i / 2) / half - 0.5) * 2 * distance * 0.8;
         robots[i].position.z =
             sqrtf(distance * distance -
@@ -611,7 +610,7 @@ void reset_positions(CodeBall* env) {
     Entity ball;
     ball.position.x = 0;
     ball.position.z = 0;
-    ball.position.y = ((sim_dtype)rand() / RAND_MAX) * (3 * BALL_RADIUS) +
+    ball.position.y = ((float)rand() / RAND_MAX) * (3 * BALL_RADIUS) +
                       BALL_RADIUS;  // Random height
     ball.velocity = (Vec3D){0, 0, 0};
     ball.radius = BALL_RADIUS;
@@ -664,7 +663,7 @@ void reset(CodeBall* env) {
     env->log = (Log){0};
 }
 
-void update(sim_dtype delta_time, CodeBall* env) {
+void update(float delta_time, CodeBall* env) {
     Entity* robots = env->robots;
     Entity* ball = &env->ball;
     NitroPack* nitro_packs = env->nitro_packs;
@@ -689,7 +688,7 @@ void update(sim_dtype delta_time, CodeBall* env) {
                 target_velocity.y - robots[i].velocity.y,
                 target_velocity.z - robots[i].velocity.z};
             if (vec3d_length(target_velocity_change) > 0) {
-                sim_dtype acceleration =
+                float acceleration =
                     ROBOT_ACCELERATION * fmax(0, robots[i].touch_normal.y);
                 Vec3D acceleration_vec = vec3d_clamp(
                     (Vec3D){
@@ -779,7 +778,7 @@ void update(sim_dtype delta_time, CodeBall* env) {
     }
 }
 
-sim_dtype goal_potential(Vec3D position, CodeBallArena* arena, bool side);
+float goal_potential(Vec3D position, CodeBallArena* arena, bool side);
 
 void step(CodeBall* env) {
     env->terminal = false;
@@ -795,18 +794,18 @@ void step(CodeBall* env) {
             } else {
                 switch (env->baseline) {
                     case DO_NOTHING:
-                        actions[i * 4] = 0;
-                        actions[i * 4 + 1] = 0;
-                        actions[i * 4 + 2] = 0;
-                        actions[i * 4 + 3] = 0;
+                        actions[0] = 0;
+                        actions[1] = 0;
+                        actions[2] = 0;
+                        actions[3] = 0;
                         break;
                     case RANDOM_ACTIONS: {
                         float x_vel = ((float)rand() / RAND_MAX) * 2 - 1;
                         float z_vel = ((float)rand() / RAND_MAX) * 2 - 1;
-                        actions[i * 4] = x_vel;
-                        actions[i * 4 + 1] = z_vel;
-                        actions[i * 4 + 2] = ((float)rand() / RAND_MAX) > 0.5;
-                        actions[i * 4 + 3] = ((float)rand() / RAND_MAX) > 0.5;
+                        actions[0] = x_vel;
+                        actions[1] = z_vel;
+                        actions[2] = ((float)rand() / RAND_MAX) > 0.5;
+                        actions[3] = ((float)rand() / RAND_MAX) > 0.5;
                         break;
                     }
                     case RUN_TO_BALL: {
@@ -823,10 +822,10 @@ void step(CodeBall* env) {
                             }
                         }
                         tgt = vec3d_multiply(tgt, ROBOT_MAX_GROUND_SPEED);
-                        actions[i * 4] = tgt.x;
-                        actions[i * 4 + 1] = tgt.z;
-                        actions[i * 4 + 2] = 0;
-                        actions[i * 4 + 3] = 0;
+                        actions[0] = tgt.x;
+                        actions[1] = tgt.z;
+                        actions[2] = 0;
+                        actions[3] = 0;
                         break;
                     }
                 }
@@ -837,10 +836,10 @@ void step(CodeBall* env) {
             }
         }
         env->robots[i].action = (Action){
-            .target_velocity = {actions[i * 4] * ROBOT_MAX_GROUND_SPEED, 0.0,
-                                actions[i * 4 + 1] * ROBOT_MAX_GROUND_SPEED},
-            .jump_speed = actions[i * 4 + 2] > 0.5 ? ROBOT_MAX_JUMP_SPEED : 0,
-            .use_nitro = actions[i * 4 + 3] > 0};
+            .target_velocity = {actions[0] * ROBOT_MAX_GROUND_SPEED, 0.0,
+                                actions[1] * ROBOT_MAX_GROUND_SPEED},
+            .jump_speed = actions[2] > 0.5 ? ROBOT_MAX_JUMP_SPEED : 0,
+            .use_nitro = actions[3] > 0};
     }
 
     Vec3D ball_initial = env->ball.position;
@@ -849,7 +848,7 @@ void step(CodeBall* env) {
         initial_positions[i] = env->robots[i].position;
     }
 
-    sim_dtype delta_time = 1.0 / TICKS_PER_SECOND;
+    float delta_time = 1.0 / TICKS_PER_SECOND;
     for (int i = 0; i < MICROTICKS_PER_TICK * env->frame_skip; i++) {
         update(delta_time / MICROTICKS_PER_TICK, env);
     }
@@ -865,11 +864,11 @@ void step(CodeBall* env) {
 
     Vec3D ball_final = env->ball.position;
 
-    sim_dtype delta = delta_time * env->frame_skip;
+    float delta = delta_time * env->frame_skip;
     for (int i = 0; i < env->n_robots; i++) {
-        sim_dtype initial_potential = goal_potential(ball_initial, &arena,
+        float initial_potential = goal_potential(ball_initial, &arena,
                                                      env->robots[i].side);
-        sim_dtype final_potential = goal_potential(ball_final, &arena,
+        float final_potential = goal_potential(ball_final, &arena,
                                                     env->robots[i].side);
         env->rewards[i] =
             initial_potential == final_potential ? -env->loiter_penalty : 0.0 +
@@ -892,21 +891,21 @@ void step(CodeBall* env) {
     env->tick++;
 }
 
-sim_dtype goal_potential(Vec3D position,
+float goal_potential(Vec3D position,
                                             CodeBallArena *arena,
                                             bool side) {
     if (!side) {
         position.z = -position.z;
     }
     return -position.z;
-    sim_dtype z_offset = arena->depth / 2.0 - position.z;
+    float z_offset = arena->depth / 2.0 - position.z;
     if (z_offset < 0) {
         return 0;
     }
     if (fabs(position.x) < arena->goal_width / 2.0) {
         return z_offset;
     }
-    sim_dtype x_offset = fabs(position.x) - arena->goal_width / 2.0;
+    float x_offset = fabs(position.x) - arena->goal_width / 2.0;
     return sqrtf(x_offset * x_offset + z_offset * z_offset);
 }
 
@@ -925,6 +924,11 @@ void make_observation(CodeBall* env, float *buffer) {
         int o = target * (env->n_robots + 3) * 9;
         Vec3D target_pos = env->robots[target].position;
         for (int i = 0; i < env->n_robots + 2; i++) {
+            if (source > 0 && i <= env->n_robots) {
+                for (int j = 0; j < 9; j++) {
+                    buffer[o + i * 9 + j] = buffer[i * 9 + j];
+                }
+            }
             if (i < env->n_robots) {
                 ent = &env->robots[i];
             } else if (i == env->n_robots) {

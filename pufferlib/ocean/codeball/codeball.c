@@ -34,6 +34,7 @@ int main() {
     env.n_nitros = 4;
     env.frame_skip = 1;
     allocate(&env);
+    env.actions = (float*)calloc(n_robots * 4, sizeof(float));
     reset(&env);
 
     struct timeval start, end;
@@ -99,7 +100,8 @@ int main() {
     }
 
     close_client(client);
-    free_allocated(&env);  // The memory leak
+    free(env.actions);
+    free_allocated(&env);
 
     return 0;
 }

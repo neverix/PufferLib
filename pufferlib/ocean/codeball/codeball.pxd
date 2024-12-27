@@ -1,7 +1,5 @@
 cdef extern from "codeball.h":
 
-    ctypedef double sim_dtype
-
     cdef struct Log:
         double episode_return_side
         double episode_return_total
@@ -26,40 +24,40 @@ cdef extern from "codeball.h":
     Log aggregate_and_clear(LogBuffer* logs)
 
     ctypedef struct CodeBallArena:
-        sim_dtype width
-        sim_dtype height
-        sim_dtype depth
-        sim_dtype bottom_radius
-        sim_dtype top_radius
-        sim_dtype corner_radius
-        sim_dtype goal_top_radius
-        sim_dtype goal_width
-        sim_dtype goal_depth
-        sim_dtype goal_height
-        sim_dtype goal_side_radius
+        float width
+        float height
+        float depth
+        float bottom_radius
+        float top_radius
+        float corner_radius
+        float goal_top_radius
+        float goal_width
+        float goal_depth
+        float goal_height
+        float goal_side_radius
 
     CodeBallArena arena
 
     ctypedef struct Vec3D:
-        sim_dtype x
-        sim_dtype y
-        sim_dtype z
+        float x
+        float y
+        float z
 
     ctypedef struct Action:
         Vec3D target_velocity
-        sim_dtype jump_speed
+        float jump_speed
         bool use_nitro
 
     ctypedef struct Entity:
         Vec3D position
         Vec3D velocity
-        sim_dtype radius
-        sim_dtype radius_change_speed
-        sim_dtype mass
-        sim_dtype arena_e
+        float radius
+        float radius_change_speed
+        float mass
+        float arena_e
         bool touch
         Vec3D touch_normal
-        sim_dtype nitro
+        float nitro
         Action action
         bool side
 
@@ -67,33 +65,33 @@ cdef extern from "codeball.h":
         Vec3D position
         bool alive
         int respawn_ticks
-        sim_dtype radius
+        float radius
 
-    sim_dtype vec3d_length(Vec3D v)
+    float vec3d_length(Vec3D v)
 
     Vec3D vec3d_normalize(Vec3D v)
 
-    sim_dtype vec3d_dot(Vec3D a, Vec3D b)
+    float vec3d_dot(Vec3D a, Vec3D b)
 
     Vec3D vec3d_subtract(Vec3D a, Vec3D b)
 
     Vec3D vec3d_add(Vec3D a, Vec3D b)
 
-    Vec3D vec3d_multiply(Vec3D v, sim_dtype s)
+    Vec3D vec3d_multiply(Vec3D v, float s)
 
-    sim_dtype clamp(sim_dtype val, sim_dtype min, sim_dtype max)
+    float clamp(float val, float min, float max)
 
-    Vec3D vec3d_clamp(Vec3D v, sim_dtype max_length)
+    Vec3D vec3d_clamp(Vec3D v, float max_length)
 
     ctypedef struct DistanceAndNormal:
-        sim_dtype distance
+        float distance
         Vec3D normal
 
     DistanceAndNormal dan_to_plane(Vec3D point, Vec3D point_on_plane, Vec3D plane_normal)
 
-    DistanceAndNormal dan_to_sphere_inner(Vec3D point, Vec3D sphere_center, sim_dtype sphere_radius)
+    DistanceAndNormal dan_to_sphere_inner(Vec3D point, Vec3D sphere_center, float sphere_radius)
 
-    DistanceAndNormal dan_to_sphere_outer(Vec3D point, Vec3D sphere_center, sim_dtype sphere_radius)
+    DistanceAndNormal dan_to_sphere_outer(Vec3D point, Vec3D sphere_center, float sphere_radius)
 
     DistanceAndNormal dan_to_arena_quarter(Vec3D point)
 
@@ -103,7 +101,7 @@ cdef extern from "codeball.h":
 
     Vec3D collide_with_arena(Entity* e)
 
-    void move(Entity* e, sim_dtype delta_time)
+    void move(Entity* e, float delta_time)
 
     cpdef enum BaselineType:
         DO_NOTHING
@@ -139,12 +137,12 @@ cdef extern from "codeball.h":
 
     void reset(CodeBall* env)
 
-    void update(sim_dtype delta_time, CodeBall* env)
+    void update(float delta_time, CodeBall* env)
 
-    sim_dtype goal_potential(Vec3D position, CodeBallArena* arena, bool side)
+    float goal_potential(Vec3D position, CodeBallArena* arena, bool side)
 
     void step(CodeBall* env)
 
-    sim_dtype goal_potential(Vec3D position, CodeBallArena* arena, bool side)
+    float goal_potential(Vec3D position, CodeBallArena* arena, bool side)
 
     void make_observation(CodeBall* env, float* buffer)
