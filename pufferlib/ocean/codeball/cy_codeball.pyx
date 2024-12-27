@@ -32,6 +32,8 @@ cdef class CyCodeBall:
     def __init__(self,
         int num_envs, int n_robots, int n_nitros, int frame_skip, double reward_mul, int max_steps,
         bool is_single,
+        float goal_scored_reward, float loiter_penalty, float ball_reward,
+        int baseline,
         float [:, :, :] observations,
         float [:, :] actions, float [:] rewards, bool [:] terminals, bool [:] truncations
     ):
@@ -53,6 +55,15 @@ cdef class CyCodeBall:
             self.envs[i].n_nitros = n_nitros
             self.envs[i].frame_skip = frame_skip
             self.envs[i].is_single = is_single
+            self.envs[i].goal_scored_reward = goal_scored_reward
+            self.envs[i].loiter_penalty = loiter_penalty
+            self.envs[i].ball_reward = ball_reward
+            if baseline - 1 == 0:
+                self.envs[i].baseline = DO_NOTHING
+            elif baseline - 1 == 1:
+                self.envs[i].baseline = RANDOM_ACTIONS
+            else:
+                self.envs[i].baseline = RUN_TO_BALL
             allocate(&self.envs[i]) # allocate memory for each env
         
         self.log_aggregator = allocate_logbuffer(self.num_envs)

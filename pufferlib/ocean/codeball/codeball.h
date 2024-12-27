@@ -571,6 +571,9 @@ typedef struct CodeBall {
     LogBuffer* log_buffer;
     bool is_single;
     BaselineType baseline;
+    float goal_scored_reward;
+    float loiter_penalty;
+    float ball_reward;
 } CodeBall;
 
 void allocate(CodeBall* env) {
@@ -642,7 +645,7 @@ void reset_positions(CodeBall* env) {
 
 void goal_scored(CodeBall *env, bool side) {
     for (int i = 0; i < env->n_robots; i++) {
-        env->rewards[i] += env->robots[i].side == side ? SCORE_REWARD : -SCORE_REWARD;
+        env->rewards[i] += (env->robots[i].side == side ? 1 : -1) * env->goal_scored_reward;
     }
     env->terminal = true;
     env->log.winner = 1;
@@ -859,21 +862,9 @@ void step(CodeBall* env) {
                                                      env->robots[i].side);
         sim_dtype final_potential = goal_potential(ball_final, &arena,
                                                     env->robots[i].side);
-        // env->rewards[i] = (initial_potential - final_potential) / arena.depth * 2.0;
         env->rewards[i] =
-            initial_potential == final_potential ? -0.001 : 0.0 +
-            (initial_potential > final_potential ? 0.1 : -0.1);
-            // 1.0 - final_potential / arena.depth * 2.0;
-        /*
-        if (initial_potential == final_potential) {
-            sim_dtype initial_distance = vec3d_length(
-                vec3d_subtract(ball_initial, initial_positions[i]));
-            sim_dtype final_distance = vec3d_length(
-                vec3d_subtract(ball_final, env->robots[i].position));
-            env->rewards[i] +=
-                initial_distance > final_distance ? 0.02 : -0.02;
-                // (initial_distance - final_distance) / arena.depth / delta;
-        }*/
+            initial_potential == final_potential ? -env->loiter_penalty : 0.0 +
+            (initial_potential > final_potential ? env->ball_reward : -env->ball_reward);
     }
 
     if (fabs(ball_final.z) > arena.depth / 2.0 + env->ball.radius) {

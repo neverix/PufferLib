@@ -15,8 +15,11 @@ import pufferlib
 
 class CodeBall(pufferlib.PufferEnv):
     def __init__(self, num_envs=2, n_robots=8, n_nitros=0, max_steps=2000,
-                 reward_mul=1.0, is_single=False,
+                 reward_mul=1.0,
+                 goal_scored_reward=1.0, loiter_penalty=0.0, ball_reward=0.0,
+                 scripted_opponent_type=None,
                  frame_skip=5, buf=None, render_mode='human'):
+        is_single = scripted_opponent_type is not None
         self.is_single = is_single
         self.num_envs = num_envs
         self.num_agents = n_robots * num_envs
@@ -38,6 +41,8 @@ class CodeBall(pufferlib.PufferEnv):
         self.c_envs = CyCodeBall(
             self.num_envs, self.n_robots, self.n_nitros, frame_skip, reward_mul, max_steps,
             self.is_single,
+            goal_scored_reward, loiter_penalty, ball_reward,
+            (None, "zero", "random", "run").index(scripted_opponent_type),
             self.observations,
             self.actions, self.rewards, self.terminals, self.truncations,
         )

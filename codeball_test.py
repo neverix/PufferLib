@@ -6,7 +6,7 @@ import torch
 import os
 
 
-env = CodeBall(num_envs=1, n_robots=8, is_single=True, frame_skip=10)
+env = CodeBall(num_envs=1, n_robots=8, scripted_opponent_type="zero", frame_skip=5)
 obs, _ = env.reset()
 
 

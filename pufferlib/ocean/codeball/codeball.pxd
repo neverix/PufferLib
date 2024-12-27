@@ -125,6 +125,9 @@ cdef extern from "codeball.h":
         LogBuffer* log_buffer
         bool is_single
         BaselineType baseline
+        float goal_scored_reward
+        float loiter_penalty
+        float ball_reward
 
     void allocate(CodeBall* env)
 
